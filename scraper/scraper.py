@@ -45,8 +45,8 @@ USER_AGENTS = [
     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36 Edg/124.0.0.0"
 ]
 
-PAGES_TO_CRAWL  = 3      
-TARGET_BOOKS    = 250
+PAGES_TO_CRAWL  = 6      
+TARGET_BOOKS    = 500
 SLEEP_DETAIL    = 4.0    # Jeda anti-blokir Cloudflare
 SLEEP_LIST      = 2.0    
 REQUEST_TIMEOUT = 20     
