@@ -504,8 +504,4 @@ class GoodreadsScraper:
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
     scraper = GoodreadsScraper()
-<<<<<<< HEAD
     scraper.run()
-=======
-    scraper.run()
->>>>>>> 51c52a4f54a723d948b327352b793a081ea16ff6
