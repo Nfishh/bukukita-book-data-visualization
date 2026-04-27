@@ -1,0 +1,20 @@
+[
+  {
+    "id_tracker": "0F00BE9D",
+    "user_id": "TEST_USER_01",
+    "book_id": "GR_1572_001",
+    "status_baca": "Sedang Membaca",
+    "rating_personal": 5,
+    "anotasi": "TKESTESESSDKFDSKfKDSFDSF",
+    "tanggal_mulai": "22 Apr 2026"
+  },
+  {
+    "id_tracker": "B757FABE",
+    "user_id": "TEST_USER_01",
+    "book_id": "GR_1572_012",
+    "status_baca": "Selesai Dibaca",
+    "rating_personal": 3,
+    "anotasi": "AaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaassaasdasdAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaasdsdsdadsadAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaasdasdsadasdsaAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaasdadsasdsadsadsafdsgfdagadsgda",
+    "tanggal_mulai": "22 Apr 2026"
+  }
+]
