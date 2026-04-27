@@ -3,11 +3,12 @@ from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QLabel,
                              QTableWidgetItem, QHeaderView, QSpacerItem, QSizePolicy,
                              QStackedWidget, QButtonGroup, QComboBox, QMenu, QAction) 
 from PyQt5.QtCore import Qt, QSize
-from PyQt5.QtGui import QIcon, QFont
+from PyQt5.QtGui import QIcon, QFont, QPixmap, QColor
 from PyQt5.QtSvg import QSvgWidget
 
-# Colok kabel ke layar Pop-up Detail
 from ui.ui_detail import BookDetailDialog
+from ui.data_viz import DataVisualizer
+
 
 # ==========================================
 # FIX: Class Khusus Kartu Statistik Animasi
@@ -20,7 +21,6 @@ class StatCard(QFrame):
         self.click_callback = click_callback
         self.setCursor(Qt.PointingHandCursor)
         
-        # Setup Layout Internal Kartu
         layout = QVBoxLayout(self)
         layout.setContentsMargins(25, 25, 25, 25)
         
@@ -36,7 +36,6 @@ class StatCard(QFrame):
         self.setStyleSheet(self.default_style())
         
     def default_style(self):
-        # Margin atas 6, bawah 0. Jadi posisinya agak turun
         return f"""
             QFrame {{
                 background-color: #FFFFFF;
@@ -49,7 +48,6 @@ class StatCard(QFrame):
         """
 
     def hover_style(self):
-        # Margin atas 0, bawah 6. Efeknya: KARTU LOMPAT NAIK KE ATAS!
         return f"""
             QFrame {{
                 background-color: #F0F4F8;
@@ -62,17 +60,14 @@ class StatCard(QFrame):
         """
 
     def enterEvent(self, event):
-        """Deteksi saat mouse masuk area kartu"""
         self.setStyleSheet(self.hover_style())
         super().enterEvent(event)
 
     def leaveEvent(self, event):
-        """Deteksi saat mouse keluar area kartu"""
         self.setStyleSheet(self.default_style())
         super().leaveEvent(event)
 
     def mousePressEvent(self, event):
-        """Deteksi saat kartu diklik (mendem ke bawah)"""
         if event.button() == Qt.LeftButton:
             self.setStyleSheet(f"""
                 QFrame {{
@@ -80,20 +75,20 @@ class StatCard(QFrame):
                     border-radius: 12px;
                     border: 1px solid #94A3B8;
                     border-left: 6px solid {self.color_code};
-                    margin-top: 8px; /* Terdorong ke bawah */
+                    margin-top: 8px;
                     margin-bottom: -2px;
                 }}
             """)
-            self.click_callback() # Panggil fungsi pindah halaman
+            self.click_callback()
         super().mousePressEvent(event)
 
     def mouseReleaseEvent(self, event):
-        """Deteksi saat klik dilepas"""
         if self.underMouse():
             self.setStyleSheet(self.hover_style())
         else:
             self.setStyleSheet(self.default_style())
         super().mouseReleaseEvent(event)
+
 
 # ==========================================
 # KELAS UTAMA DASHBOARD
@@ -107,13 +102,19 @@ class DashboardScreen(QWidget):
                 font-family: 'Segoe UI', sans-serif;
             }
             QScrollBar:vertical {
-                border: none; background: transparent; width: 8px; margin: 0px;
+                border: none; 
+                background: transparent; 
+                width: 14px;
+                margin: 0px;
             }
             QScrollBar::handle:vertical {
-                background-color: #CBD5E1; min-height: 30px; border-radius: 4px;
+                background-color: rgba(148, 163, 184, 0.4);
+                min-height: 40px; 
+                border-radius: 7px;
+                margin: 2px;
             }
             QScrollBar::handle:vertical:hover {
-                background-color: #94A3B8; 
+                background-color: rgba(100, 116, 139, 0.8);
             }
             QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
                 height: 0px; background: none;
@@ -281,11 +282,9 @@ class DashboardScreen(QWidget):
         header_layout.addSpacing(15)
         header_layout.addWidget(btn_user)
         
-        # --- FIX: Kartu Custom Beranimasi ---
         stats_layout = QHBoxLayout()
         stats_layout.setSpacing(20)
         
-        # Panggil class StatCard yang udah kita bikin di atas!
         card_total = StatCard("Total Koleksi", "124 Buku", "#1A56DB", self.btn_menu_col.click)
         card_reading = StatCard("Sedang Dibaca", "3 Buku", "#059669", self.btn_menu_col.click)
         card_finished = StatCard("Selesai Dibaca", "45 Buku", "#D97706", self.btn_menu_col.click)
@@ -308,10 +307,31 @@ class DashboardScreen(QWidget):
         self.table_dash.setEditTriggers(QTableWidget.NoEditTriggers) 
         self.table_dash.setFocusPolicy(Qt.NoFocus)
         self.table_dash.setShowGrid(False)
+        self.table_dash.horizontalHeader().setSectionsClickable(False)
         self.table_dash.setStyleSheet("""
             QTableWidget { background-color: #FFFFFF; border: none; font-size: 18px; color: #4F566B; }
-            QHeaderView::section { background-color: #FFFFFF; padding: 15px; font-size: 18px; font-weight: bold; color: #6B7280; border: none; border-bottom: 2px solid #E3E8EE; }
-            QTableWidget::item { padding: 15px; border-bottom: 1px solid #F3F4F6; }
+            QHeaderView { background-color: transparent; }
+            QHeaderView::section { 
+                background-color: #F8FAFC;
+                padding: 12px 15px; 
+                font-size: 16px; 
+                font-weight: 800; 
+                color: #475569; 
+                border: none; 
+                border-top: 1px solid #E2E8F0;
+                border-bottom: 2px solid #E2E8F0; 
+            }
+            QHeaderView::section:first {
+                border-top-left-radius: 10px;
+                border-bottom-left-radius: 10px;
+                border-left: 1px solid #E2E8F0;
+            }
+            QHeaderView::section:last {
+                border-top-right-radius: 10px;
+                border-bottom-right-radius: 10px;
+                border-right: 1px solid #E2E8F0;
+            }
+            QTableWidget::item { padding: 15px; border-bottom: 1px solid #F1F5F9; }
         """)
         
         dummy_data = [
@@ -355,39 +375,66 @@ class DashboardScreen(QWidget):
         header_layout.addLayout(title_layout)
         header_layout.addStretch()
         
-        filter_layout = QHBoxLayout()
-        filter_layout.setSpacing(15)
-        filter_style = """
-            QPushButton { background-color: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 20px; padding: 10px 25px; font-size: 16px; font-weight: bold; color: #4F566B;}
-            QPushButton:hover { background-color: #F7F9FC; color: #1A56DB; border: 1px solid #1A56DB; }
-            QPushButton:checked { background-color: #EFF6FF; color: #1A56DB; border: 1.5px solid #1A56DB; }
-        """
-        self.btn_filter_all = QPushButton("Semua Buku (500)")
-        self.btn_filter_all.setStyleSheet(filter_style)
-        self.btn_filter_all.setCheckable(True)
-        self.btn_filter_all.setChecked(True)
-        self.btn_filter_all.setCursor(Qt.PointingHandCursor)
+        # Toolbar: Search & Dropdown
+        toolbar_layout = QHBoxLayout()
+        toolbar_layout.setSpacing(15)
         
-        self.btn_filter_fic = QPushButton("Fiksi (250)")
-        self.btn_filter_fic.setStyleSheet(filter_style)
-        self.btn_filter_fic.setCheckable(True)
-        self.btn_filter_fic.setCursor(Qt.PointingHandCursor)
+        self.search_bar_lib = QLineEdit()
+        self.search_bar_lib.setPlaceholderText("Cari judul buku, penulis, atau ISBN...")
+        self.search_bar_lib.setFixedHeight(45)
+        self.search_bar_lib.setFixedWidth(400)
         
-        self.btn_filter_nonfic = QPushButton("Non-Fiksi (250)")
-        self.btn_filter_nonfic.setStyleSheet(filter_style)
-        self.btn_filter_nonfic.setCheckable(True)
-        self.btn_filter_nonfic.setCursor(Qt.PointingHandCursor)
+        self.action_search = QAction(self)
+        self.action_search.setIcon(QIcon("assets/icons/ic_search.svg"))
+        self.search_bar_lib.addAction(self.action_search, QLineEdit.LeadingPosition)
         
-        filter_group = QButtonGroup(page)
-        filter_group.setExclusive(True)
-        filter_group.addButton(self.btn_filter_all)
-        filter_group.addButton(self.btn_filter_fic)
-        filter_group.addButton(self.btn_filter_nonfic)
+        self.search_bar_lib.setStyleSheet("""
+            QLineEdit { 
+                background-color: #FFFFFF; 
+                border: 1.5px solid #E3E8EE; 
+                border-radius: 22px;
+                padding: 0 15px 0 5px; 
+                font-size: 16px; 
+                color: #1A1F36; 
+            }
+            QLineEdit:focus { border: 2px solid #1A56DB; }
+        """)
         
-        filter_layout.addWidget(self.btn_filter_all)
-        filter_layout.addWidget(self.btn_filter_fic)
-        filter_layout.addWidget(self.btn_filter_nonfic)
-        filter_layout.addStretch()
+        self.combo_filter_lib = QComboBox()
+        self.combo_filter_lib.addItems(["Semua Kategori", "Fiksi", "Non-Fiksi"])
+        self.combo_filter_lib.setFixedHeight(45)
+        self.combo_filter_lib.setFixedWidth(220)
+        self.combo_filter_lib.setCursor(Qt.PointingHandCursor)
+        self.combo_filter_lib.setStyleSheet("""
+            QComboBox { 
+                background-color: #FFFFFF; 
+                border: 1.5px solid #E3E8EE; 
+                border-radius: 22px; 
+                padding: 0 20px; 
+                font-size: 16px; 
+                font-weight: bold;
+                color: #4F566B; 
+            }
+            QComboBox:hover { border: 1.5px solid #1A56DB; color: #1A56DB; }
+            QComboBox::drop-down { border: none; width: 40px; }
+            QComboBox::down-arrow { image: url('assets/icons/ic_chevron_down.svg'); width: 20px; height: 20px; }
+            QComboBox QAbstractItemView {
+                border: 1px solid #E3E8EE;
+                border-radius: 8px;
+                background-color: #FFFFFF;
+                selection-background-color: #EFF6FF;
+                selection-color: #1A56DB;
+                outline: none;
+            }
+            QComboBox QAbstractItemView::item {
+                min-height: 45px; 
+                padding: 10px;
+            }
+        """)
+        
+        toolbar_layout.addWidget(self.search_bar_lib)
+        toolbar_layout.addWidget(self.combo_filter_lib)
+        toolbar_layout.addStretch()
         
         table_container = QFrame()
         table_container.setStyleSheet("background-color: #FFFFFF; border-radius: 12px; border: 1px solid #E3E8EE;")
@@ -398,14 +445,40 @@ class DashboardScreen(QWidget):
         self.table_lib.setHorizontalHeaderLabels(["Judul Buku", "Penulis", "Tahun", "Kategori", "Rating", "Aksi"])
         self.table_lib.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.table_lib.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeToContents)
-        
         self.table_lib.setEditTriggers(QTableWidget.NoEditTriggers) 
         self.table_lib.setFocusPolicy(Qt.NoFocus)
         self.table_lib.setShowGrid(False)
+        self.table_lib.horizontalHeader().setSectionsClickable(False)
+
+        # FIX (dari Doc 1): Cover art placeholder — icon & row size
+        self.table_lib.setIconSize(QSize(35, 50))
+        self.table_lib.verticalHeader().setDefaultSectionSize(75)
+        self.table_lib.verticalHeader().setVisible(False)
+
         self.table_lib.setStyleSheet("""
             QTableWidget { background-color: #FFFFFF; border: none; font-size: 18px; color: #4F566B; }
-            QHeaderView::section { background-color: #FFFFFF; padding: 15px; font-size: 18px; font-weight: bold; color: #6B7280; border: none; border-bottom: 2px solid #E3E8EE; }
-            QTableWidget::item { padding: 15px; border-bottom: 1px solid #F3F4F6; }
+            QHeaderView { background-color: transparent; }
+            QHeaderView::section { 
+                background-color: #F8FAFC; 
+                padding: 12px 15px; 
+                font-size: 16px; 
+                font-weight: 800; 
+                color: #475569; 
+                border: none; 
+                border-top: 1px solid #E2E8F0;
+                border-bottom: 2px solid #E2E8F0; 
+            }
+            QHeaderView::section:first {
+                border-top-left-radius: 10px;
+                border-bottom-left-radius: 10px;
+                border-left: 1px solid #E2E8F0;
+            }
+            QHeaderView::section:last {
+                border-top-right-radius: 10px;
+                border-bottom-right-radius: 10px;
+                border-right: 1px solid #E2E8F0;
+            }
+            QTableWidget::item { padding: 15px; border-bottom: 1px solid #F1F5F9; }
         """)
         
         dummy_lib_data = [
@@ -417,10 +490,22 @@ class DashboardScreen(QWidget):
             ("Gadis Kretek", "Eka Kurniawan", "2012", "Fiksi", "⭐ 4.6")
         ]
         
+        # FIX (dari Doc 1): Buat placeholder cover abu-abu
+        placeholder_cover = QPixmap(35, 50)
+        placeholder_cover.fill(QColor("#CBD5E1"))
+        cover_icon = QIcon(placeholder_cover)
+
         for row, data in enumerate(dummy_lib_data):
             for col, item in enumerate(data):
-                cell = QTableWidgetItem(item)
-                if col >= 2: cell.setTextAlignment(Qt.AlignCenter)
+                # FIX (dari Doc 1): Tambah spasi di depan teks judul biar rapi di samping icon
+                cell = QTableWidgetItem("   " + item if col == 0 else item)
+                
+                # FIX (dari Doc 1): Pasang icon cover hanya di kolom Judul
+                if col == 0:
+                    cell.setIcon(cover_icon)
+                    
+                if col >= 2:
+                    cell.setTextAlignment(Qt.AlignCenter)
                 self.table_lib.setItem(row, col, cell)
                 
             btn_action = QPushButton()
@@ -448,21 +533,56 @@ class DashboardScreen(QWidget):
             
             btn_action.setMenu(menu)
             self.table_lib.setCellWidget(row, 5, btn_action)
-                
-        self.table_lib.verticalHeader().setDefaultSectionSize(60)
-        self.table_lib.verticalHeader().setVisible(False) 
         
         table_layout.addWidget(self.table_lib)
         
         layout.addLayout(header_layout)
-        layout.addLayout(filter_layout) 
+        layout.addLayout(toolbar_layout)
         layout.addWidget(table_container, 1) 
         
         return page
 
     def show_book_detail(self):
         dialog = BookDetailDialog()
-        dialog.exec_() 
+        dialog.exec_()
+
+    def _show_col_context_menu(self, position):
+        """Context menu klik kanan di tabel My Collections"""
+        # Pastikan klik mengenai baris yang valid, bukan area kosong
+        index = self.table_col.indexAt(position)
+        if not index.isValid():
+            return
+
+        menu = QMenu(self)
+        menu.setStyleSheet("""
+            QMenu {
+                background-color: #FFFFFF;
+                border: 1px solid #E3E8EE;
+                border-radius: 8px;
+                padding: 5px;
+            }
+            QMenu::item {
+                padding: 10px 20px 10px 8px;
+                font-size: 16px;
+                font-weight: bold;
+                color: #1A1F36;
+                border-radius: 6px;
+            }
+            QMenu::item:selected {
+                background-color: #EFF6FF;
+                color: #1A56DB;
+            }
+            QMenu::icon {
+                padding-left: 6px;
+            }
+        """)
+
+        action_detail = QAction(QIcon("assets/icons/ic_detail.svg"), "Detail Buku", self)
+        action_detail.triggered.connect(self.show_book_detail)
+        menu.addAction(action_detail)
+
+        # Munculkan menu tepat di posisi kursor
+        menu.exec_(self.table_col.viewport().mapToGlobal(position))
 
     def build_collections_page(self):
         page = QWidget()
@@ -560,7 +680,6 @@ class DashboardScreen(QWidget):
                 }
                 QComboBox::drop-down { border: none; width: 35px; }
                 QComboBox::down-arrow { image: url('assets/icons/ic_chevron_down.svg'); width: 20px; height: 20px; }
-                
                 QComboBox QAbstractItemView {
                     border: 1px solid #E3E8EE;
                     border-radius: 8px;
@@ -591,10 +710,35 @@ class DashboardScreen(QWidget):
         self.table_col.setFocusPolicy(Qt.NoFocus)
         self.table_col.setSelectionBehavior(QTableWidget.SelectRows) 
         self.table_col.setShowGrid(False)
+
+        # Cover placeholder — sama seperti tabel Library
+        self.table_col.setIconSize(QSize(35, 50))
+        self.table_col.verticalHeader().setDefaultSectionSize(75)
+
         self.table_col.setStyleSheet("""
             QTableWidget { background-color: #FFFFFF; border: none; font-size: 18px; color: #4F566B; }
-            QHeaderView::section { background-color: #FFFFFF; padding: 15px; font-size: 18px; font-weight: bold; color: #6B7280; border: none; border-bottom: 2px solid #E3E8EE; }
-            QTableWidget::item { padding: 15px; border-bottom: 1px solid #F3F4F6; }
+            QHeaderView { background-color: transparent; }
+            QHeaderView::section { 
+                background-color: #F8FAFC; 
+                padding: 12px 15px; 
+                font-size: 16px; 
+                font-weight: 800; 
+                color: #475569; 
+                border: none; 
+                border-top: 1px solid #E2E8F0;
+                border-bottom: 2px solid #E2E8F0; 
+            }
+            QHeaderView::section:first {
+                border-top-left-radius: 10px;
+                border-bottom-left-radius: 10px;
+                border-left: 1px solid #E2E8F0;
+            }
+            QHeaderView::section:last {
+                border-top-right-radius: 10px;
+                border-bottom-right-radius: 10px;
+                border-right: 1px solid #E2E8F0;
+            }
+            QTableWidget::item { padding: 15px; border-bottom: 1px solid #F1F5F9; }
             QTableWidget::item:selected { background-color: #EFF6FF; color: #1A56DB; } 
         """)
         
@@ -603,15 +747,26 @@ class DashboardScreen(QWidget):
             ("Laut Bercerita", "Sedang Membaca", "4", "Sedih banget ceritanya, belum kuat lanjutin.", "20 Okt 2025"),
             ("Atomic Habits", "Selesai Dibaca", "5", "Buku wajib buat self-improvement.", "01 Sep 2025")
         ]
-        
+
+        # Cover placeholder abu-abu — sama seperti tabel Library
+        col_placeholder = QPixmap(35, 50)
+        col_placeholder.fill(QColor("#CBD5E1"))
+        col_cover_icon = QIcon(col_placeholder)
+
         for row, data in enumerate(dummy_col_data):
             for col, item in enumerate(data):
-                cell = QTableWidgetItem(item)
+                # Tambah spasi di depan teks judul biar rapi di samping icon
+                cell = QTableWidgetItem("   " + item if col == 0 else item)
+                if col == 0:
+                    cell.setIcon(col_cover_icon)
                 if col in [1, 2, 4]: cell.setTextAlignment(Qt.AlignCenter)
                 self.table_col.setItem(row, col, cell)
-                
-        self.table_col.verticalHeader().setDefaultSectionSize(60)
-        self.table_col.verticalHeader().setVisible(False) 
+
+        self.table_col.verticalHeader().setVisible(False)
+
+        # --- Fitur klik kanan: context menu "Detail Buku" ---
+        self.table_col.setContextMenuPolicy(Qt.CustomContextMenu)
+        self.table_col.customContextMenuRequested.connect(self._show_col_context_menu) 
         
         table_layout.addWidget(self.table_col)
         
@@ -627,6 +782,8 @@ class DashboardScreen(QWidget):
         layout.setContentsMargins(40, 40, 40, 40)
         layout.setSpacing(25)
         
+        visualizer = DataVisualizer()
+        
         header_layout = QHBoxLayout()
         title_layout = QVBoxLayout()
         lbl_title = QLabel("Analytics & Insight")
@@ -638,19 +795,59 @@ class DashboardScreen(QWidget):
         header_layout.addLayout(title_layout)
         header_layout.addStretch()
         
-        chart_card = QFrame()
-        chart_card.setStyleSheet("background-color: #FFFFFF; border-radius: 12px; border: 1px solid #E3E8EE;")
-        chart_layout = QVBoxLayout(chart_card)
-        chart_layout.setContentsMargins(25, 25, 25, 25)
+        top_charts_layout = QHBoxLayout()
+        top_charts_layout.setSpacing(25)
         
-        lbl_chart_placeholder = QLabel("📊 Area Grafik Matplotlib Akan Ditampilkan Di Sini")
-        lbl_chart_placeholder.setStyleSheet("""
-            font-size: 20px; font-weight: bold; color: #94A3B8; border: 2px dashed #E2E8F0; border-radius: 8px;
-        """)
-        lbl_chart_placeholder.setAlignment(Qt.AlignCenter)
+        # [A] Pie Chart (Status Bacaan)
+        pie_card = QFrame()
+        pie_card.setStyleSheet("background-color: #FFFFFF; border-radius: 12px; border: 1px solid #E3E8EE;")
+        pie_layout = QVBoxLayout(pie_card)
+        pie_layout.setContentsMargins(25, 25, 25, 25)
         
-        chart_layout.addWidget(lbl_chart_placeholder)
+        lbl_pie_title = QLabel("Distribusi Status Bacaan")
+        lbl_pie_title.setStyleSheet("font-size: 20px; font-weight: bold; color: #1A1F36; border: none;")
+        
+        pie_chart_widget = visualizer.create_pie_chart_status()
+        
+        pie_layout.addWidget(lbl_pie_title)
+        pie_layout.addSpacing(15)
+        pie_layout.addWidget(pie_chart_widget, 1)
+        
+        # [B] Bar Chart (Kategori)
+        bar_card = QFrame()
+        bar_card.setStyleSheet("background-color: #FFFFFF; border-radius: 12px; border: 1px solid #E3E8EE;")
+        bar_layout = QVBoxLayout(bar_card)
+        bar_layout.setContentsMargins(25, 25, 25, 25)
+        
+        lbl_bar_title = QLabel("Komposisi Kategori Buku")
+        lbl_bar_title.setStyleSheet("font-size: 20px; font-weight: bold; color: #1A1F36; border: none;")
+        
+        bar_chart_widget = visualizer.create_bar_chart_kategori()
+        
+        bar_layout.addWidget(lbl_bar_title)
+        bar_layout.addSpacing(15)
+        bar_layout.addWidget(bar_chart_widget, 1)
+        
+        top_charts_layout.addWidget(pie_card)
+        top_charts_layout.addWidget(bar_card)
+        
+        # Bottom Chart (Histogram Rating)
+        bottom_card = QFrame()
+        bottom_card.setStyleSheet("background-color: #FFFFFF; border-radius: 12px; border: 1px solid #E3E8EE;")
+        bottom_layout = QVBoxLayout(bottom_card)
+        bottom_layout.setContentsMargins(25, 25, 25, 25)
+        
+        lbl_bottom_title = QLabel("Persebaran Rating Pribadi")
+        lbl_bottom_title.setStyleSheet("font-size: 20px; font-weight: bold; color: #1A1F36; border: none;")
+        
+        rating_chart_widget = visualizer.create_histogram_rating()
+        
+        bottom_layout.addWidget(lbl_bottom_title)
+        bottom_layout.addSpacing(15)
+        bottom_layout.addWidget(rating_chart_widget, 1)
         
         layout.addLayout(header_layout)
-        layout.addWidget(chart_card, 1) 
+        layout.addLayout(top_charts_layout, 1) 
+        layout.addWidget(bottom_card, 1)       
+        
         return page
