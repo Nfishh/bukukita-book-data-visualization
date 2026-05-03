@@ -16,5 +16,77 @@
     "rating_personal": 3,
     "anotasi": "AaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaassaasdasdAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaasdsdsdadsadAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaasdasdsadasdsaAaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaasdadsasdsadsadsafdsgfdagadsgda",
     "tanggal_mulai": "22 Apr 2026"
+  },
+  {
+    "id_tracker": "BBB16BA3",
+    "user_id": "aa",
+    "book_id": "GR_1572_084",
+    "status_baca": "Belum Dibaca",
+    "rating_personal": 4,
+    "catatan": "hihi",
+    "tgl_mulai": "2026-05-03"
+  },
+  {
+    "id_tracker": "EB8E9894",
+    "user_id": "aa",
+    "book_id": "GR_1572_001",
+    "status_baca": "Belum Dibaca",
+    "rating_personal": 4,
+    "catatan": "ZxZX",
+    "tgl_mulai": "-"
+  },
+  {
+    "id_tracker": "DE74A799",
+    "user_id": "aa",
+    "book_id": "GR_1572_003",
+    "status_baca": "Selesai Dibaca",
+    "rating_personal": 5,
+    "catatan": "asdasd",
+    "tgl_mulai": "-"
+  },
+  {
+    "id_tracker": "3962C842",
+    "user_id": "aa",
+    "book_id": "GR_1572_004",
+    "status_baca": "Sedang Membaca",
+    "rating_personal": 1,
+    "catatan": "bdfb",
+    "tgl_mulai": "-"
+  },
+  {
+    "id_tracker": "413D83CF",
+    "user_id": "s",
+    "book_id": "GR_1572_001",
+    "status_baca": "Sedang Membaca",
+    "rating_personal": 3,
+    "catatan": "adasdasas",
+    "tgl_mulai": "2026-05-03"
+  },
+  {
+    "id_tracker": "A678E015",
+    "user_id": "s",
+    "book_id": "GR_1572_059",
+    "status_baca": "Selesai Dibaca",
+    "rating_personal": 4,
+    "catatan": "asd",
+    "tgl_mulai": "2026-05-03"
+  },
+  {
+    "id_tracker": "05E2D419",
+    "user_id": "s",
+    "book_id": "GR_1572_035",
+    "status_baca": "Belum Dibaca",
+    "rating_personal": 5,
+    "catatan": "",
+    "tgl_mulai": "2026-05-03"
+  },
+  {
+    "id_tracker": "7AC40ADD",
+    "user_id": "s",
+    "book_id": "GR_1572_027",
+    "status_baca": "Selesai Dibaca",
+    "rating_personal": 2,
+    "catatan": "",
+    "tgl_mulai": "2026-05-03"
   }
 ]

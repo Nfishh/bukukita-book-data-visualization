@@ -1,1 +1,32 @@
-[]
+[
+  {
+    "username": "asepganteng",
+    "password": "admin123",
+    "role": "user"
+  },
+  {
+    "username": "d",
+    "password": "d",
+    "role": "user"
+  },
+  {
+    "username": "gharinganteng",
+    "password": "nafisasu",
+    "role": "user"
+  },
+  {
+    "username": "ipi",
+    "password": "123",
+    "role": "user"
+  },
+  {
+    "username": "aa",
+    "password": "aaa",
+    "role": "user"
+  },
+  {
+    "username": "s",
+    "password": "s",
+    "role": "user"
+  }
+]

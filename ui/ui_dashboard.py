@@ -1,17 +1,19 @@
 from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QLabel, 
                              QLineEdit, QPushButton, QFrame, QTableWidget, 
                              QTableWidgetItem, QHeaderView, QSpacerItem, QSizePolicy,
-                             QStackedWidget, QButtonGroup, QComboBox, QMenu, QAction) 
-from PyQt5.QtCore import Qt, QSize
+                             QStackedWidget, QButtonGroup, QComboBox, QMenu, QAction,
+                             QMessageBox, QScrollArea, QDateEdit)
+from PyQt5.QtCore import Qt, QSize, QDate
 from PyQt5.QtGui import QIcon, QFont, QPixmap, QColor
 from PyQt5.QtSvg import QSvgWidget
 
+# FIX: Import path disesuaikan dengan struktur folder ui/
 from ui.ui_detail import BookDetailDialog
 from ui.data_viz import DataVisualizer
 
 
 # ==========================================
-# FIX: Class Khusus Kartu Statistik Animasi
+# Class Khusus Kartu Statistik Animasi
 # ==========================================
 class StatCard(QFrame):
     """Custom Widget QFrame yang punya interaksi layaknya tombol melayang"""
@@ -94,8 +96,16 @@ class StatCard(QFrame):
 # KELAS UTAMA DASHBOARD
 # ==========================================
 class DashboardScreen(QWidget):
-    def __init__(self):
+    def __init__(self, data_manager=None, book_manager=None, rating_system=None):
         super().__init__()
+        self.data_manager = data_manager
+        self.book_manager = book_manager
+        self.rating_system = rating_system
+        self.current_user = None
+
+        # Cache data buku untuk filtering tanpa baca ulang JSON
+        self._all_books_cache = []
+
         self.setStyleSheet("""
             QWidget {
                 background-color: #F7F9FC; 
@@ -229,20 +239,23 @@ class DashboardScreen(QWidget):
         self.content_stack = QStackedWidget()
         self.content_stack.setStyleSheet("background-color: transparent;")
         
-        self.page_overview = self.build_overview_page()
-        self.page_library = self.build_library_page()
-        self.page_collections = self.build_collections_page()
-        self.page_analytics = self.build_analytics_page() 
+        self.page_overview     = self.build_overview_page()
+        self.page_library      = self.build_library_page()
+        self.page_collections  = self.build_collections_page()
+        self.page_analytics    = self.build_analytics_page()
         
-        self.content_stack.addWidget(self.page_overview)    
-        self.content_stack.addWidget(self.page_library)     
-        self.content_stack.addWidget(self.page_collections) 
-        self.content_stack.addWidget(self.page_analytics)   
+        self.content_stack.addWidget(self.page_overview)    # index 0
+        self.content_stack.addWidget(self.page_library)     # index 1
+        self.content_stack.addWidget(self.page_collections) # index 2
+        self.content_stack.addWidget(self.page_analytics)   # index 3
         
         self.btn_menu_dash.clicked.connect(lambda: self.content_stack.setCurrentIndex(0))
         self.btn_menu_lib.clicked.connect(lambda: self.content_stack.setCurrentIndex(1))
         self.btn_menu_col.clicked.connect(lambda: self.content_stack.setCurrentIndex(2))
-        self.btn_menu_analytics.clicked.connect(lambda: self.content_stack.setCurrentIndex(3)) 
+        self.btn_menu_analytics.clicked.connect(lambda: (
+            self.content_stack.setCurrentIndex(3),
+            self._rebuild_analytics_charts()
+        ))
         
         main_layout.addWidget(sidebar)
         main_layout.addWidget(self.content_stack, 1) 
@@ -260,14 +273,12 @@ class DashboardScreen(QWidget):
         lbl_title = QLabel("Dashboard") 
         lbl_title.setStyleSheet("font-size: 38px; font-weight: 800; color: #1A1F36;") 
         
-        self.search_bar_dash = QLineEdit()
-        self.search_bar_dash.setPlaceholderText("Cari di dashboard...")
-        self.search_bar_dash.setFixedWidth(350)
-        self.search_bar_dash.setFixedHeight(50)
-        self.search_bar_dash.setStyleSheet("""
-            QLineEdit { background-color: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 25px; padding: 0 20px; font-size: 18px; color: #1A1F36; }
-            QLineEdit:focus { border: 2px solid #1A56DB; }
-        """)
+        self.lbl_welcome = QLabel("Selamat datang!")
+        self.lbl_welcome.setStyleSheet("font-size: 20px; color: #6B7280; margin-top: 4px;")
+
+        title_vbox = QVBoxLayout()
+        title_vbox.addWidget(lbl_title)
+        title_vbox.addWidget(self.lbl_welcome)
         
         btn_user = QPushButton()
         btn_user.setIcon(QIcon("assets/icons/ic_user.svg"))
@@ -276,22 +287,20 @@ class DashboardScreen(QWidget):
         btn_user.setStyleSheet("background-color: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 25px;")
         btn_user.setCursor(Qt.PointingHandCursor)
         
-        header_layout.addWidget(lbl_title)
+        header_layout.addLayout(title_vbox)
         header_layout.addStretch()
-        header_layout.addWidget(self.search_bar_dash)
-        header_layout.addSpacing(15)
         header_layout.addWidget(btn_user)
         
         stats_layout = QHBoxLayout()
         stats_layout.setSpacing(20)
         
-        card_total = StatCard("Total Koleksi", "124 Buku", "#1A56DB", self.btn_menu_col.click)
-        card_reading = StatCard("Sedang Dibaca", "3 Buku", "#059669", self.btn_menu_col.click)
-        card_finished = StatCard("Selesai Dibaca", "45 Buku", "#D97706", self.btn_menu_col.click)
+        self.card_total    = StatCard("Total Koleksi",   "0 Buku", "#1A56DB", self.btn_menu_col.click)
+        self.card_reading  = StatCard("Sedang Dibaca",   "0 Buku", "#059669", self.btn_menu_col.click)
+        self.card_finished = StatCard("Selesai Dibaca",  "0 Buku", "#D97706", self.btn_menu_col.click)
         
-        stats_layout.addWidget(card_total)
-        stats_layout.addWidget(card_reading)
-        stats_layout.addWidget(card_finished)
+        stats_layout.addWidget(self.card_total)
+        stats_layout.addWidget(self.card_reading)
+        stats_layout.addWidget(self.card_finished)
         
         table_container = QFrame()
         table_container.setStyleSheet("background-color: #FFFFFF; border-radius: 12px; border: 1px solid #E3E8EE;")
@@ -301,53 +310,16 @@ class DashboardScreen(QWidget):
         lbl_table_title = QLabel("Koleksi Terbaru")
         lbl_table_title.setStyleSheet("font-size: 24px; font-weight: bold; color: #1A1F36; border: none;") 
         
-        self.table_dash = QTableWidget(5, 5) 
+        self.table_dash = QTableWidget(0, 5) 
         self.table_dash.setHorizontalHeaderLabels(["Judul Buku", "Penulis", "Tahun", "Rating", "Status"])
         self.table_dash.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.table_dash.setEditTriggers(QTableWidget.NoEditTriggers) 
         self.table_dash.setFocusPolicy(Qt.NoFocus)
         self.table_dash.setShowGrid(False)
         self.table_dash.horizontalHeader().setSectionsClickable(False)
-        self.table_dash.setStyleSheet("""
-            QTableWidget { background-color: #FFFFFF; border: none; font-size: 18px; color: #4F566B; }
-            QHeaderView { background-color: transparent; }
-            QHeaderView::section { 
-                background-color: #F8FAFC;
-                padding: 12px 15px; 
-                font-size: 16px; 
-                font-weight: 800; 
-                color: #475569; 
-                border: none; 
-                border-top: 1px solid #E2E8F0;
-                border-bottom: 2px solid #E2E8F0; 
-            }
-            QHeaderView::section:first {
-                border-top-left-radius: 10px;
-                border-bottom-left-radius: 10px;
-                border-left: 1px solid #E2E8F0;
-            }
-            QHeaderView::section:last {
-                border-top-right-radius: 10px;
-                border-bottom-right-radius: 10px;
-                border-right: 1px solid #E2E8F0;
-            }
-            QTableWidget::item { padding: 15px; border-bottom: 1px solid #F1F5F9; }
-        """)
-        
-        dummy_data = [
-            ("Bumi Manusia", "Pramoedya Ananta Toer", "1980", "⭐ 4.8", "Selesai"),
-            ("Laskar Pelangi", "Andrea Hirata", "2005", "⭐ 4.7", "Selesai"),
-            ("Laut Bercerita", "Leila S. Chudori", "2017", "⭐ 4.9", "Membaca")
-        ]
-        
-        for row, data in enumerate(dummy_data):
-            for col, item in enumerate(data):
-                cell = QTableWidgetItem(item)
-                if col >= 2: cell.setTextAlignment(Qt.AlignCenter)
-                self.table_dash.setItem(row, col, cell)
-                
         self.table_dash.verticalHeader().setDefaultSectionSize(60)
         self.table_dash.verticalHeader().setVisible(False) 
+        self.table_dash.setStyleSheet(self._table_stylesheet())
         
         table_layout.addWidget(lbl_table_title)
         table_layout.addSpacing(15)
@@ -356,62 +328,46 @@ class DashboardScreen(QWidget):
         layout.addLayout(header_layout)
         layout.addLayout(stats_layout)
         layout.addWidget(table_container)
+        
         return page
 
     def build_library_page(self):
         page = QWidget()
         layout = QVBoxLayout(page)
         layout.setContentsMargins(40, 40, 40, 40)
-        layout.setSpacing(25)
+        layout.setSpacing(20)
         
         header_layout = QHBoxLayout()
-        title_layout = QVBoxLayout()
-        lbl_title = QLabel("Library Database")
+        lbl_title = QLabel("Library")
         lbl_title.setStyleSheet("font-size: 38px; font-weight: 800; color: #1A1F36;")
-        lbl_desc = QLabel("Jelajahi 500 koleksi buku eksklusif yang siap kamu tambahkan ke My Collections.")
-        lbl_desc.setStyleSheet("font-size: 18px; color: #6B7280; margin-top: 5px;")
-        title_layout.addWidget(lbl_title)
-        title_layout.addWidget(lbl_desc)
-        header_layout.addLayout(title_layout)
+        header_layout.addWidget(lbl_title)
         header_layout.addStretch()
         
-        # Toolbar: Search & Dropdown
         toolbar_layout = QHBoxLayout()
         toolbar_layout.setSpacing(15)
         
         self.search_bar_lib = QLineEdit()
-        self.search_bar_lib.setPlaceholderText("Cari judul buku, penulis, atau ISBN...")
-        self.search_bar_lib.setFixedHeight(45)
-        self.search_bar_lib.setFixedWidth(400)
-        
-        self.action_search = QAction(self)
-        self.action_search.setIcon(QIcon("assets/icons/ic_search.svg"))
-        self.search_bar_lib.addAction(self.action_search, QLineEdit.LeadingPosition)
-        
+        self.search_bar_lib.setPlaceholderText("Cari judul atau penulis...")
+        self.search_bar_lib.setFixedHeight(50)
+        self.search_bar_lib.setFixedWidth(350)
         self.search_bar_lib.setStyleSheet("""
-            QLineEdit { 
-                background-color: #FFFFFF; 
-                border: 1.5px solid #E3E8EE; 
-                border-radius: 22px;
-                padding: 0 15px 0 5px; 
-                font-size: 16px; 
-                color: #1A1F36; 
-            }
+            QLineEdit { background-color: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 25px; padding: 0 20px; font-size: 18px; color: #1A1F36; }
             QLineEdit:focus { border: 2px solid #1A56DB; }
         """)
+        # FIX: Hubungkan search bar ke fungsi filter
+        self.search_bar_lib.textChanged.connect(self._filter_library)
         
         self.combo_filter_lib = QComboBox()
-        self.combo_filter_lib.addItems(["Semua Kategori", "Fiksi", "Non-Fiksi"])
-        self.combo_filter_lib.setFixedHeight(45)
+        self.combo_filter_lib.addItems(["Semua Kategori", "Fiksi", "Non-Fiksi", "Romance", "Mystery", "Science Fiction", "Fantasy", "Biography", "History"])
+        self.combo_filter_lib.setFixedHeight(50)
         self.combo_filter_lib.setFixedWidth(220)
-        self.combo_filter_lib.setCursor(Qt.PointingHandCursor)
         self.combo_filter_lib.setStyleSheet("""
-            QComboBox { 
-                background-color: #FFFFFF; 
-                border: 1.5px solid #E3E8EE; 
-                border-radius: 22px; 
-                padding: 0 20px; 
-                font-size: 16px; 
+            QComboBox {
+                background-color: #FFFFFF;
+                border: 1.5px solid #E3E8EE;
+                border-radius: 25px;
+                padding: 0 20px;
+                font-size: 18px;
                 font-weight: bold;
                 color: #4F566B; 
             }
@@ -426,11 +382,10 @@ class DashboardScreen(QWidget):
                 selection-color: #1A56DB;
                 outline: none;
             }
-            QComboBox QAbstractItemView::item {
-                min-height: 45px; 
-                padding: 10px;
-            }
+            QComboBox QAbstractItemView::item { min-height: 45px; padding: 10px; }
         """)
+        # FIX: Hubungkan combo filter ke fungsi filter
+        self.combo_filter_lib.currentTextChanged.connect(self._filter_library)
         
         toolbar_layout.addWidget(self.search_bar_lib)
         toolbar_layout.addWidget(self.combo_filter_lib)
@@ -441,7 +396,7 @@ class DashboardScreen(QWidget):
         table_layout = QVBoxLayout(table_container)
         table_layout.setContentsMargins(25, 25, 25, 25)
         
-        self.table_lib = QTableWidget(6, 6) 
+        self.table_lib = QTableWidget(0, 6) 
         self.table_lib.setHorizontalHeaderLabels(["Judul Buku", "Penulis", "Tahun", "Kategori", "Rating", "Aksi"])
         self.table_lib.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.table_lib.horizontalHeader().setSectionResizeMode(5, QHeaderView.ResizeToContents)
@@ -449,90 +404,10 @@ class DashboardScreen(QWidget):
         self.table_lib.setFocusPolicy(Qt.NoFocus)
         self.table_lib.setShowGrid(False)
         self.table_lib.horizontalHeader().setSectionsClickable(False)
-
-        # FIX (dari Doc 1): Cover art placeholder — icon & row size
         self.table_lib.setIconSize(QSize(35, 50))
         self.table_lib.verticalHeader().setDefaultSectionSize(75)
         self.table_lib.verticalHeader().setVisible(False)
-
-        self.table_lib.setStyleSheet("""
-            QTableWidget { background-color: #FFFFFF; border: none; font-size: 18px; color: #4F566B; }
-            QHeaderView { background-color: transparent; }
-            QHeaderView::section { 
-                background-color: #F8FAFC; 
-                padding: 12px 15px; 
-                font-size: 16px; 
-                font-weight: 800; 
-                color: #475569; 
-                border: none; 
-                border-top: 1px solid #E2E8F0;
-                border-bottom: 2px solid #E2E8F0; 
-            }
-            QHeaderView::section:first {
-                border-top-left-radius: 10px;
-                border-bottom-left-radius: 10px;
-                border-left: 1px solid #E2E8F0;
-            }
-            QHeaderView::section:last {
-                border-top-right-radius: 10px;
-                border-bottom-right-radius: 10px;
-                border-right: 1px solid #E2E8F0;
-            }
-            QTableWidget::item { padding: 15px; border-bottom: 1px solid #F1F5F9; }
-        """)
-        
-        dummy_lib_data = [
-            ("Filosofi Teras", "Henry Manampiring", "2018", "Non-Fiksi", "⭐ 4.8"),
-            ("Sapiens", "Yuval Noah Harari", "2011", "Non-Fiksi", "⭐ 4.9"),
-            ("Bumi Manusia", "Pramoedya Ananta Toer", "1980", "Fiksi", "⭐ 4.8"),
-            ("Laut Bercerita", "Leila S. Chudori", "2017", "Fiksi", "⭐ 4.9"),
-            ("Atomic Habits", "James Clear", "2018", "Non-Fiksi", "⭐ 4.8"),
-            ("Gadis Kretek", "Eka Kurniawan", "2012", "Fiksi", "⭐ 4.6")
-        ]
-        
-        # FIX (dari Doc 1): Buat placeholder cover abu-abu
-        placeholder_cover = QPixmap(35, 50)
-        placeholder_cover.fill(QColor("#CBD5E1"))
-        cover_icon = QIcon(placeholder_cover)
-
-        for row, data in enumerate(dummy_lib_data):
-            for col, item in enumerate(data):
-                # FIX (dari Doc 1): Tambah spasi di depan teks judul biar rapi di samping icon
-                cell = QTableWidgetItem("   " + item if col == 0 else item)
-                
-                # FIX (dari Doc 1): Pasang icon cover hanya di kolom Judul
-                if col == 0:
-                    cell.setIcon(cover_icon)
-                    
-                if col >= 2:
-                    cell.setTextAlignment(Qt.AlignCenter)
-                self.table_lib.setItem(row, col, cell)
-                
-            btn_action = QPushButton()
-            btn_action.setIcon(QIcon("assets/icons/ic_more_vert.svg")) 
-            btn_action.setIconSize(QSize(24, 24))
-            btn_action.setCursor(Qt.PointingHandCursor)
-            btn_action.setStyleSheet("""
-                QPushButton { background: transparent; border: none; }
-                QPushButton::menu-indicator { image: none; width: 0px; } 
-            """)
-            
-            menu = QMenu()
-            menu.setStyleSheet("""
-                QMenu { background-color: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 8px; padding: 5px; }
-                QMenu::item { padding: 10px 20px; font-size: 16px; font-weight: bold; color: #1A1F36; border-radius: 6px; }
-                QMenu::item:selected { background-color: #F7F9FC; color: #1A56DB; }
-            """)
-            
-            action_detail = QAction(QIcon("assets/icons/ic_detail.svg"), "Detail", self)
-            action_detail.triggered.connect(self.show_book_detail) 
-            menu.addAction(action_detail)
-            
-            action_bookmark = QAction(QIcon("assets/icons/ic_bookmark.svg"), "Bookmark", self)
-            menu.addAction(action_bookmark)
-            
-            btn_action.setMenu(menu)
-            self.table_lib.setCellWidget(row, 5, btn_action)
+        self.table_lib.setStyleSheet(self._table_stylesheet())
         
         table_layout.addWidget(self.table_lib)
         
@@ -541,48 +416,6 @@ class DashboardScreen(QWidget):
         layout.addWidget(table_container, 1) 
         
         return page
-
-    def show_book_detail(self):
-        dialog = BookDetailDialog()
-        dialog.exec_()
-
-    def _show_col_context_menu(self, position):
-        """Context menu klik kanan di tabel My Collections"""
-        # Pastikan klik mengenai baris yang valid, bukan area kosong
-        index = self.table_col.indexAt(position)
-        if not index.isValid():
-            return
-
-        menu = QMenu(self)
-        menu.setStyleSheet("""
-            QMenu {
-                background-color: #FFFFFF;
-                border: 1px solid #E3E8EE;
-                border-radius: 8px;
-                padding: 5px;
-            }
-            QMenu::item {
-                padding: 10px 20px 10px 8px;
-                font-size: 16px;
-                font-weight: bold;
-                color: #1A1F36;
-                border-radius: 6px;
-            }
-            QMenu::item:selected {
-                background-color: #EFF6FF;
-                color: #1A56DB;
-            }
-            QMenu::icon {
-                padding-left: 6px;
-            }
-        """)
-
-        action_detail = QAction(QIcon("assets/icons/ic_detail.svg"), "Detail Buku", self)
-        action_detail.triggered.connect(self.show_book_detail)
-        menu.addAction(action_detail)
-
-        # Munculkan menu tepat di posisi kursor
-        menu.exec_(self.table_col.viewport().mapToGlobal(position))
 
     def build_collections_page(self):
         page = QWidget()
@@ -632,6 +465,12 @@ class DashboardScreen(QWidget):
         self.combo_status.setFixedHeight(45)
         self.combo_status.setFixedWidth(200)
         
+        self.input_col_date = QDateEdit()
+        self.input_col_date.setCalendarPopup(True) # Biar bisa diklik muncul kalender
+        self.input_col_date.setDisplayFormat("yyyy-MM-dd") # Format standar database
+        self.input_col_date.setFixedHeight(45)
+        self.input_col_date.setFixedWidth(140)
+
         self.input_col_rating = QLineEdit()
         self.input_col_rating.setPlaceholderText("Rating (1-5)")
         self.input_col_rating.setFixedHeight(45)
@@ -639,6 +478,7 @@ class DashboardScreen(QWidget):
         
         row1_layout.addWidget(self.input_col_title)
         row1_layout.addWidget(self.combo_status)
+        row1_layout.addWidget(self.input_col_date)
         row1_layout.addWidget(self.input_col_rating)
         
         row2_layout = QHBoxLayout()
@@ -654,45 +494,95 @@ class DashboardScreen(QWidget):
         self.btn_col_save.setFixedHeight(45)
         self.btn_col_save.setCursor(Qt.PointingHandCursor)
         self.btn_col_save.setStyleSheet(btn_style + "QPushButton { background-color: #1A56DB; } QPushButton:hover { background-color: #1E40AF; }")
+        self.btn_col_save.clicked.connect(self._save_collection_edit)
         
         self.btn_col_delete = QPushButton("Hapus")
         self.btn_col_delete.setFixedHeight(45)
         self.btn_col_delete.setCursor(Qt.PointingHandCursor)
         self.btn_col_delete.setStyleSheet(btn_style + "QPushButton { background-color: #DC2626; } QPushButton:hover { background-color: #B91C1C; }")
+        self.btn_col_delete.clicked.connect(self._delete_collection_entry)
         
         row2_layout.addWidget(self.input_col_notes)
         row2_layout.addWidget(self.btn_col_save)
         row2_layout.addWidget(self.btn_col_delete)
         
+        input_widget_style = """
+            QLineEdit, QComboBox, QDateEdit { 
+                border: 1.5px solid #E3E8EE; 
+                border-radius: 8px; 
+                padding: 0 15px; 
+                font-size: 16px; 
+                color: #4F566B; 
+                background-color: rgba(247, 249, 252, 0.7); 
+            }
+            QLineEdit:focus, QComboBox:focus, QDateEdit:focus { 
+                border: 2px solid #1A56DB; 
+                background-color: #FFFFFF; 
+            }
+            /* Styling panah Dropdown biar seragam */
+            QComboBox::drop-down, QDateEdit::drop-down { border: none; width: 35px; }
+            QComboBox::down-arrow, QDateEdit::down-arrow { image: url('assets/icons/ic_chevron_down.svg'); width: 20px; height: 20px; }
+            
+            QComboBox QAbstractItemView {
+                border: 1px solid #E3E8EE;
+                border-radius: 8px;
+                background-color: #FFFFFF;
+                selection-background-color: #EFF6FF;
+                selection-color: #1A56DB;
+                outline: none;
+            }
+            QComboBox QAbstractItemView::item { min-height: 45px; padding: 10px; }
+        """
+        
+        # Terapin ke semua widget input termasuk tanggal!
+        for widget in [self.combo_status, self.input_col_date, self.input_col_rating, self.input_col_notes]:
+            widget.setStyleSheet(input_widget_style)
+
+        # SIHIR KHUSUS KALENDER POP-UP:
+        calendar_style = """
+            /* Background utama kalender */
+            QCalendarWidget QWidget {
+                alternate-background-color: #F8FAFC;
+                background-color: #FFFFFF;
+            }
+            /* Header atas (Bulan dan Tahun) */
+            QCalendarWidget QToolButton {
+                color: #1A1F36;
+                font-size: 14px;
+                font-weight: bold;
+                background-color: transparent;
+                border: none;
+                margin: 5px;
+            }
+            QCalendarWidget QToolButton:hover {
+                background-color: #E3E8EE;
+                border-radius: 4px;
+            }
+            /* Styling Menu dropdown bulan */
+            QCalendarWidget QMenu {
+                width: 150px;
+                left: 20px;
+                color: white;
+                font-size: 14px;
+                background-color: #1A56DB;
+            }
+            /* Styling angka tanggal di dalam kalender */
+            QCalendarWidget QAbstractItemView:enabled {
+                font-size: 14px;
+                color: #4F566B;
+                selection-background-color: #1A56DB;
+                selection-color: #FFFFFF;
+                outline: none;
+            }
+            QCalendarWidget QAbstractItemView:disabled {
+                color: #CBD5E1;
+            }
+        """
+        # Terapin sihir ke pop-up kalendernya
+        self.input_col_date.calendarWidget().setStyleSheet(calendar_style)
+        
         for widget in [self.combo_status, self.input_col_rating, self.input_col_notes]:
-            widget.setStyleSheet("""
-                QLineEdit, QComboBox { 
-                    border: 1.5px solid #E3E8EE; 
-                    border-radius: 8px; 
-                    padding: 0 15px; 
-                    font-size: 16px; 
-                    color: #4F566B; 
-                    background-color: rgba(247, 249, 252, 0.7); 
-                }
-                QLineEdit:focus, QComboBox:focus { 
-                    border: 2px solid #1A56DB; 
-                    background-color: #FFFFFF; 
-                }
-                QComboBox::drop-down { border: none; width: 35px; }
-                QComboBox::down-arrow { image: url('assets/icons/ic_chevron_down.svg'); width: 20px; height: 20px; }
-                QComboBox QAbstractItemView {
-                    border: 1px solid #E3E8EE;
-                    border-radius: 8px;
-                    background-color: #FFFFFF;
-                    selection-background-color: #EFF6FF;
-                    selection-color: #1A56DB;
-                    outline: none;
-                }
-                QComboBox QAbstractItemView::item {
-                    min-height: 45px; 
-                    padding: 10px;
-                }
-            """)
+            widget.setStyleSheet(input_widget_style)
             
         crud_layout.addWidget(lbl_crud_title)
         crud_layout.addLayout(row1_layout)
@@ -703,151 +593,564 @@ class DashboardScreen(QWidget):
         table_layout = QVBoxLayout(table_container)
         table_layout.setContentsMargins(25, 25, 25, 25)
         
-        self.table_col = QTableWidget(5, 5) 
+        self.table_col = QTableWidget(0, 5) 
         self.table_col.setHorizontalHeaderLabels(["Judul Buku", "Status", "Rating Pribadi", "Anotasi / Catatan", "Tgl Mulai"])
         self.table_col.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.table_col.setEditTriggers(QTableWidget.NoEditTriggers) 
         self.table_col.setFocusPolicy(Qt.NoFocus)
         self.table_col.setSelectionBehavior(QTableWidget.SelectRows) 
         self.table_col.setShowGrid(False)
-
-        # Cover placeholder — sama seperti tabel Library
         self.table_col.setIconSize(QSize(35, 50))
         self.table_col.verticalHeader().setDefaultSectionSize(75)
-
-        self.table_col.setStyleSheet("""
-            QTableWidget { background-color: #FFFFFF; border: none; font-size: 18px; color: #4F566B; }
-            QHeaderView { background-color: transparent; }
-            QHeaderView::section { 
-                background-color: #F8FAFC; 
-                padding: 12px 15px; 
-                font-size: 16px; 
-                font-weight: 800; 
-                color: #475569; 
-                border: none; 
-                border-top: 1px solid #E2E8F0;
-                border-bottom: 2px solid #E2E8F0; 
-            }
-            QHeaderView::section:first {
-                border-top-left-radius: 10px;
-                border-bottom-left-radius: 10px;
-                border-left: 1px solid #E2E8F0;
-            }
-            QHeaderView::section:last {
-                border-top-right-radius: 10px;
-                border-bottom-right-radius: 10px;
-                border-right: 1px solid #E2E8F0;
-            }
-            QTableWidget::item { padding: 15px; border-bottom: 1px solid #F1F5F9; }
-            QTableWidget::item:selected { background-color: #EFF6FF; color: #1A56DB; } 
-        """)
-        
-        dummy_col_data = [
-            ("Bumi Manusia", "Selesai Dibaca", "5", "Karya epik Pramoedya! Sangat menginspirasi.", "12 Okt 2025"),
-            ("Laut Bercerita", "Sedang Membaca", "4", "Sedih banget ceritanya, belum kuat lanjutin.", "20 Okt 2025"),
-            ("Atomic Habits", "Selesai Dibaca", "5", "Buku wajib buat self-improvement.", "01 Sep 2025")
-        ]
-
-        # Cover placeholder abu-abu — sama seperti tabel Library
-        col_placeholder = QPixmap(35, 50)
-        col_placeholder.fill(QColor("#CBD5E1"))
-        col_cover_icon = QIcon(col_placeholder)
-
-        for row, data in enumerate(dummy_col_data):
-            for col, item in enumerate(data):
-                # Tambah spasi di depan teks judul biar rapi di samping icon
-                cell = QTableWidgetItem("   " + item if col == 0 else item)
-                if col == 0:
-                    cell.setIcon(col_cover_icon)
-                if col in [1, 2, 4]: cell.setTextAlignment(Qt.AlignCenter)
-                self.table_col.setItem(row, col, cell)
-
         self.table_col.verticalHeader().setVisible(False)
+        self.table_col.setStyleSheet(self._table_stylesheet() + """
+            QTableWidget::item:selected { background-color: #EFF6FF; color: #1A56DB; }
+        """)
 
-        # --- Fitur klik kanan: context menu "Detail Buku" ---
+        # FIX: Context menu klik kanan
         self.table_col.setContextMenuPolicy(Qt.CustomContextMenu)
-        self.table_col.customContextMenuRequested.connect(self._show_col_context_menu) 
+        self.table_col.customContextMenuRequested.connect(self._show_col_context_menu)
+        # FIX: Sambungkan seleksi baris ke form CRUD
+        self.table_col.itemSelectionChanged.connect(self._on_collection_selected)
         
         table_layout.addWidget(self.table_col)
         
         layout.addLayout(header_layout)
         layout.addWidget(crud_card)
-        layout.addWidget(table_container, 1) 
+        layout.addWidget(table_container, 1)
         
         return page
 
     def build_analytics_page(self):
+        """Build analytics page — chart akan diisi data nyata saat pertama kali dibuka."""
         page = QWidget()
         layout = QVBoxLayout(page)
         layout.setContentsMargins(40, 40, 40, 40)
-        layout.setSpacing(25)
-        
-        visualizer = DataVisualizer()
-        
+        layout.setSpacing(20)
+
         header_layout = QHBoxLayout()
-        title_layout = QVBoxLayout()
-        lbl_title = QLabel("Analytics & Insight")
+        lbl_title = QLabel("Analytics")
         lbl_title.setStyleSheet("font-size: 38px; font-weight: 800; color: #1A1F36;")
-        lbl_desc = QLabel("Visualisasi data koleksimu berdasarkan kategori, rating, dan status baca.")
-        lbl_desc.setStyleSheet("font-size: 18px; color: #6B7280; margin-top: 5px;")
-        title_layout.addWidget(lbl_title)
-        title_layout.addWidget(lbl_desc)
-        header_layout.addLayout(title_layout)
+        header_layout.addWidget(lbl_title)
         header_layout.addStretch()
-        
+
         top_charts_layout = QHBoxLayout()
-        top_charts_layout.setSpacing(25)
-        
-        # [A] Pie Chart (Status Bacaan)
+        top_charts_layout.setSpacing(20)
+
+        # --- Pie Chart Card ---
         pie_card = QFrame()
         pie_card.setStyleSheet("background-color: #FFFFFF; border-radius: 12px; border: 1px solid #E3E8EE;")
         pie_layout = QVBoxLayout(pie_card)
         pie_layout.setContentsMargins(25, 25, 25, 25)
-        
-        lbl_pie_title = QLabel("Distribusi Status Bacaan")
+        lbl_pie_title = QLabel("Status Bacaan")
         lbl_pie_title.setStyleSheet("font-size: 20px; font-weight: bold; color: #1A1F36; border: none;")
-        
-        pie_chart_widget = visualizer.create_pie_chart_status()
-        
+        # FIX: Simpan referensi layout agar bisa diupdate chart-nya
+        self._pie_chart_layout = pie_layout
         pie_layout.addWidget(lbl_pie_title)
         pie_layout.addSpacing(15)
-        pie_layout.addWidget(pie_chart_widget, 1)
-        
-        # [B] Bar Chart (Kategori)
+        # Placeholder label sebelum data tersedia
+        self._pie_placeholder = QLabel("Data akan muncul setelah login")
+        self._pie_placeholder.setAlignment(Qt.AlignCenter)
+        self._pie_placeholder.setStyleSheet("color: #9CA3AF; font-size: 16px;")
+        pie_layout.addWidget(self._pie_placeholder)
+        pie_layout.addStretch()
+
+        # --- Bar Chart Card ---
         bar_card = QFrame()
         bar_card.setStyleSheet("background-color: #FFFFFF; border-radius: 12px; border: 1px solid #E3E8EE;")
         bar_layout = QVBoxLayout(bar_card)
         bar_layout.setContentsMargins(25, 25, 25, 25)
-        
         lbl_bar_title = QLabel("Komposisi Kategori Buku")
         lbl_bar_title.setStyleSheet("font-size: 20px; font-weight: bold; color: #1A1F36; border: none;")
-        
-        bar_chart_widget = visualizer.create_bar_chart_kategori()
-        
+        self._bar_chart_layout = bar_layout
         bar_layout.addWidget(lbl_bar_title)
         bar_layout.addSpacing(15)
-        bar_layout.addWidget(bar_chart_widget, 1)
-        
+        self._bar_placeholder = QLabel("Data akan muncul setelah login")
+        self._bar_placeholder.setAlignment(Qt.AlignCenter)
+        self._bar_placeholder.setStyleSheet("color: #9CA3AF; font-size: 16px;")
+        bar_layout.addWidget(self._bar_placeholder)
+        bar_layout.addStretch()
+
         top_charts_layout.addWidget(pie_card)
         top_charts_layout.addWidget(bar_card)
-        
-        # Bottom Chart (Histogram Rating)
+
+        # --- Histogram Rating ---
         bottom_card = QFrame()
         bottom_card.setStyleSheet("background-color: #FFFFFF; border-radius: 12px; border: 1px solid #E3E8EE;")
         bottom_layout = QVBoxLayout(bottom_card)
         bottom_layout.setContentsMargins(25, 25, 25, 25)
-        
         lbl_bottom_title = QLabel("Persebaran Rating Pribadi")
         lbl_bottom_title.setStyleSheet("font-size: 20px; font-weight: bold; color: #1A1F36; border: none;")
-        
-        rating_chart_widget = visualizer.create_histogram_rating()
-        
+        self._hist_chart_layout = bottom_layout
         bottom_layout.addWidget(lbl_bottom_title)
         bottom_layout.addSpacing(15)
-        bottom_layout.addWidget(rating_chart_widget, 1)
-        
+        self._hist_placeholder = QLabel("Data akan muncul setelah login")
+        self._hist_placeholder.setAlignment(Qt.AlignCenter)
+        self._hist_placeholder.setStyleSheet("color: #9CA3AF; font-size: 16px;")
+        bottom_layout.addWidget(self._hist_placeholder)
+        bottom_layout.addStretch()
+
         layout.addLayout(header_layout)
-        layout.addLayout(top_charts_layout, 1) 
-        layout.addWidget(bottom_card, 1)       
-        
+        layout.addLayout(top_charts_layout, 1)
+        layout.addWidget(bottom_card, 1)
+
         return page
+
+    # =========================================================
+    # HELPER
+    # =========================================================
+    def _table_stylesheet(self):
+        return """
+            QTableWidget { background-color: #FFFFFF; border: none; font-size: 18px; color: #4F566B; }
+            QHeaderView { background-color: transparent; }
+            QHeaderView::section { 
+                background-color: #F8FAFC; padding: 12px 15px; font-size: 16px; 
+                font-weight: 800; color: #475569; border: none; 
+                border-top: 1px solid #E2E8F0; border-bottom: 2px solid #E2E8F0; 
+            }
+            QHeaderView::section:first {
+                border-top-left-radius: 10px; border-bottom-left-radius: 10px; border-left: 1px solid #E2E8F0;
+            }
+            QHeaderView::section:last {
+                border-top-right-radius: 10px; border-bottom-right-radius: 10px; border-right: 1px solid #E2E8F0;
+            }
+            QTableWidget::item { padding: 15px; border-bottom: 1px solid #F1F5F9; }
+        """
+
+    def _make_action_btn(self, buku: dict):
+        """Buat tombol aksi (⋮) untuk tabel Library dengan data buku nyata."""
+        btn = QPushButton()
+        btn.setIcon(QIcon("assets/icons/ic_more_vert.svg"))
+        btn.setIconSize(QSize(24, 24))
+        btn.setCursor(Qt.PointingHandCursor)
+        btn.setStyleSheet("QPushButton { background: transparent; border: none; } QPushButton::menu-indicator { image: none; width: 0px; }")
+
+        menu = QMenu()
+        menu.setStyleSheet("""
+            QMenu { background-color: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 8px; padding: 5px; }
+            QMenu::item { padding: 10px 20px; font-size: 16px; font-weight: bold; color: #1A1F36; border-radius: 6px; }
+            QMenu::item:selected { background-color: #F7F9FC; color: #1A56DB; }
+        """)
+
+        action_detail = QAction(QIcon("assets/icons/ic_detail.svg"), "Detail", self)
+        action_detail.triggered.connect(lambda checked, b=buku: self.show_book_detail(b))
+        menu.addAction(action_detail)
+
+        action_bookmark = QAction(QIcon("assets/icons/ic_bookmark.svg"), "Tambah ke Koleksi", self)
+        action_bookmark.triggered.connect(lambda checked, b=buku: self._add_to_collection(b))
+        menu.addAction(action_bookmark)
+
+        btn.setMenu(menu)
+        return btn
+
+    # =========================================================
+    # INTEGRASI DATA — dipanggil oleh ScreenManager
+    # =========================================================
+
+    def set_user(self, username: str):
+        """Simpan username user yang sedang login dan tampilkan greeting."""
+        self.current_user = username
+        if hasattr(self, "lbl_welcome"):
+            self.lbl_welcome.setText(f"Selamat datang kembali, {username}! 👋")
+
+    def refresh_data(self):
+        """Muat ulang semua data dari DataManager ke seluruh halaman."""
+        if not self.data_manager:
+            return
+        self._all_books_cache = self.data_manager.get_semua_buku()
+        self._load_library_data()
+        self._load_collections_data()
+        self._load_overview_data()
+        # Analytics di-rebuild saat tab dibuka agar tidak berat di awal
+
+    def _load_library_data(self, books=None):
+        """Isi tabel Library. Jika `books` disediakan, gunakan list itu (untuk filtering)."""
+        semua_buku = books if books is not None else self._all_books_cache
+        self.table_lib.setRowCount(len(semua_buku))
+
+        placeholder_px = QPixmap(35, 50)
+        placeholder_px.fill(QColor("#CBD5E1"))
+        default_icon = QIcon(placeholder_px)
+
+        for row, buku in enumerate(semua_buku):
+            judul    = str(buku.get("judul", "-"))
+            penulis  = str(buku.get("penulis", "-"))
+            tahun    = str(buku.get("first_published", buku.get("tahun_terbit", "-")))
+            rating   = str(buku.get("avg_rating_gr", buku.get("rating", "0.0")))
+            genres   = buku.get("genre", buku.get("kategori", []))
+            kategori = ", ".join(genres[:2]) if isinstance(genres, list) else str(genres)
+
+            cover_path = buku.get("local_cover_path", "")
+            icon_buku = default_icon
+            if cover_path:
+                px = QPixmap(cover_path)
+                if not px.isNull():
+                    icon_buku = QIcon(px.scaled(35, 50, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+
+            col_data = [
+                ("   " + judul, False), (penulis, False),
+                (tahun, True), (kategori, True), (f"⭐ {rating}", True)
+            ]
+
+            for col, (text, centered) in enumerate(col_data):
+                cell = QTableWidgetItem(text)
+                if col == 0:
+                    cell.setIcon(icon_buku)
+                if centered:
+                    cell.setTextAlignment(Qt.AlignCenter)
+                self.table_lib.setItem(row, col, cell)
+
+            self.table_lib.setCellWidget(row, 5, self._make_action_btn(buku))
+
+    def _filter_library(self):
+        """Filter tabel Library berdasarkan teks pencarian dan dropdown kategori."""
+        keyword  = self.search_bar_lib.text().strip().lower()
+        kategori = self.combo_filter_lib.currentText()
+
+        filtered = []
+        for buku in self._all_books_cache:
+            judul   = str(buku.get("judul", "")).lower()
+            penulis = str(buku.get("penulis", "")).lower()
+            genres  = buku.get("genre", buku.get("kategori", []))
+            genre_str = ", ".join(genres).lower() if isinstance(genres, list) else str(genres).lower()
+
+            cocok_keyword  = (not keyword) or (keyword in judul) or (keyword in penulis)
+            cocok_kategori = (kategori == "Semua Kategori") or (kategori.lower() in genre_str)
+
+            if cocok_keyword and cocok_kategori:
+                filtered.append(buku)
+
+        self._load_library_data(filtered)
+
+    def _load_collections_data(self):
+        """Isi tabel My Collections dengan data tracker user yang login."""
+        if not self.current_user:
+            return
+
+        tracker_list = self.data_manager.get_tracker_user(self.current_user)
+        buku_dict    = {b.get("id_buku"): b for b in self._all_books_cache}
+
+        self.table_col.setRowCount(len(tracker_list))
+
+        # Placeholder (Cadangan) kalau nggak ada cover
+        col_placeholder = QPixmap(35, 50)
+        col_placeholder.fill(QColor("#CBD5E1"))
+        default_icon = QIcon(col_placeholder)
+
+        for row, tracker in enumerate(tracker_list):
+            buku    = buku_dict.get(tracker.get("book_id"), {})
+            judul   = buku.get("judul", tracker.get("book_id", "-"))
+            status  = tracker.get("status_baca", "-")
+            rating  = str(tracker.get("rating_personal", 0))
+            catatan = tracker.get("catatan", tracker.get("anotasi", ""))
+            tgl     = tracker.get("tgl_mulai", tracker.get("tanggal_mulai", "-"))
+
+            # --- FIX: Logika pengambilan Cover Buku ---
+            cover_path = buku.get("local_cover_path", "")
+            icon_buku = default_icon # Set default abu-abu dulu
+            
+            # Kalau file cover ada, ganti defaultnya dengan gambar asli
+            if cover_path:
+                px = QPixmap(cover_path)
+                if not px.isNull():
+                    icon_buku = QIcon(px.scaled(35, 50, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            # ----------------------------------------
+
+            for col, (text, centered) in enumerate([
+                ("   " + judul, False), (status, True),
+                (rating, True), (catatan, False), (tgl, True)
+            ]):
+                cell = QTableWidgetItem(text)
+                if col == 0:
+                    # FIX: Gunakan icon_buku yang udah dicek, bukan col_cover_icon
+                    cell.setIcon(icon_buku)
+                    cell.setData(Qt.UserRole, tracker) 
+                if centered:
+                    cell.setTextAlignment(Qt.AlignCenter)
+                self.table_col.setItem(row, col, cell)
+
+    def _on_collection_selected(self):
+        """Isi form CRUD saat user memilih baris di tabel Collections."""
+        selected = self.table_col.selectedItems()
+        if not selected:
+            return
+
+        row = self.table_col.currentRow()
+        item = self.table_col.item(row, 0)
+        if not item:
+            return
+        tracker_data = item.data(Qt.UserRole)
+        if not tracker_data:
+            return
+
+        self.input_col_title.setText(self.table_col.item(row, 0).text().strip())
+
+        status = tracker_data.get("status_baca", "Belum Dibaca")
+        idx = self.combo_status.findText(status)
+        if idx >= 0:
+            self.combo_status.setCurrentIndex(idx)
+
+        tgl_str = tracker_data.get("tgl_mulai", "-")
+        if tgl_str and tgl_str != "-":
+            self.input_col_date.setDate(QDate.fromString(tgl_str, "yyyy-MM-dd"))
+        else:
+            self.input_col_date.setDate(QDate.currentDate()) # Default hari ini
+
+        self.input_col_rating.setText(str(tracker_data.get("rating_personal", "")))
+        catatan = tracker_data.get("catatan", tracker_data.get("anotasi", ""))
+        self.input_col_notes.setText(catatan)
+
+        self._selected_tracker = tracker_data
+
+    def _save_collection_edit(self):
+        """Simpan perubahan status/rating/catatan ke tracker.json."""
+        if not hasattr(self, "_selected_tracker") or not self._selected_tracker:
+            QMessageBox.information(self, "Info", "Pilih baris koleksi terlebih dahulu.")
+            return
+
+        tracker_id = self._selected_tracker.get("id_tracker")
+        status     = self.combo_status.currentText()
+        catatan    = self.input_col_notes.text().strip()
+
+        tgl_mulai  = self.input_col_date.date().toString("yyyy-MM-dd")
+
+        rating_text = self.input_col_rating.text().strip()
+        try:
+            rating = int(rating_text) if rating_text else 0
+            if rating and not (1 <= rating <= 5):
+                QMessageBox.warning(self, "Rating Tidak Valid", "Rating harus antara 1–5.")
+                return
+        except ValueError:
+            QMessageBox.warning(self, "Rating Tidak Valid", "Masukkan angka untuk rating.")
+            return
+
+        self.data_manager.update_tracker(tracker_id, {
+            "status_baca": status,
+            "rating_personal": rating,
+            "catatan": catatan,
+        })
+
+        self.data_manager.update_tracker(tracker_id, {
+            "status_baca": status,
+            "rating_personal": rating,
+            "catatan": catatan,
+            "tgl_mulai": tgl_mulai, # <-- INI YANG BARU
+        })
+
+        QMessageBox.information(self, "Berhasil", "Koleksi berhasil diperbarui.")
+        self._selected_tracker = None
+        self._load_collections_data()
+        self._load_overview_data()
+
+    def _delete_collection_entry(self):
+        """Hapus entri koleksi dari tracker.json."""
+        if not hasattr(self, "_selected_tracker") or not self._selected_tracker:
+            QMessageBox.information(self, "Info", "Pilih baris koleksi terlebih dahulu.")
+            return
+
+        konfirmasi = QMessageBox.question(
+            self, "Konfirmasi Hapus",
+            "Hapus buku ini dari koleksi?",
+            QMessageBox.Yes | QMessageBox.No,
+        )
+        if konfirmasi == QMessageBox.Yes:
+            self.data_manager.hapus_tracker(self._selected_tracker["id_tracker"])
+            self._selected_tracker = None
+            self._load_collections_data()
+            self._load_overview_data()
+
+    def _add_to_collection(self, buku: dict):
+        """Tambahkan buku ke koleksi user (dari tombol Bookmark di Library)."""
+        if not self.current_user:
+            QMessageBox.warning(self, "Belum Login", "Silakan login terlebih dahulu.")
+            return
+
+        book_id = buku.get("id_buku")
+        if self.data_manager.cek_duplikasi_tracker(self.current_user, book_id):
+            QMessageBox.information(self, "Sudah Ada", "Buku ini sudah ada di koleksimu.")
+            return
+
+        import uuid
+        data_baru = {
+            "id_tracker"      : str(uuid.uuid4())[:8].upper(),
+            "user_id"         : self.current_user,
+            "book_id"         : book_id,
+            "status_baca"     : "Belum Dibaca",
+            "rating_personal" : 0,
+            "catatan"         : "",
+            "tgl_mulai"       : "-",
+        }
+        self.data_manager.simpan_tracker(data_baru)
+        QMessageBox.information(self, "Berhasil", f"'{buku.get('judul')}' ditambahkan ke koleksimu.")
+        self._load_collections_data()
+        self._load_overview_data()
+
+    def _show_col_context_menu(self, position):
+        """Context menu klik kanan di tabel My Collections."""
+        index = self.table_col.indexAt(position)
+        if not index.isValid():
+            return
+
+        row = index.row()
+        item = self.table_col.item(row, 0)
+        tracker_data = item.data(Qt.UserRole) if item else None
+
+        menu = QMenu(self)
+        menu.setStyleSheet("""
+            QMenu { background-color: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 8px; padding: 5px; }
+            QMenu::item { padding: 10px 20px 10px 8px; font-size: 16px; font-weight: bold; color: #1A1F36; border-radius: 6px; }
+            QMenu::item:selected { background-color: #EFF6FF; color: #1A56DB; }
+            QMenu::icon { padding-left: 6px; }
+        """)
+
+        if tracker_data:
+            buku_dict = {b.get("id_buku"): b for b in self._all_books_cache}
+            buku = buku_dict.get(tracker_data.get("book_id"), {})
+
+            action_detail = QAction(QIcon("assets/icons/ic_detail.svg"), "Detail Buku", self)
+            action_detail.triggered.connect(lambda: self.show_book_detail(buku))
+            menu.addAction(action_detail)
+
+        menu.exec_(self.table_col.viewport().mapToGlobal(position))
+
+    def _load_overview_data(self):
+        """Update stat cards dan tabel ringkasan di halaman Overview."""
+        if not self.current_user:
+            return
+
+        tracker_list = self.data_manager.get_tracker_user(self.current_user)
+        total    = len(tracker_list)
+        membaca  = sum(1 for t in tracker_list if t.get("status_baca") == "Sedang Membaca")
+        selesai  = sum(1 for t in tracker_list if t.get("status_baca") == "Selesai Dibaca")
+
+        for card, val in [
+            (self.card_total,    f"{total} Buku"),
+            (self.card_reading,  f"{membaca} Buku"),
+            (self.card_finished, f"{selesai} Buku"),
+        ]:
+            lbl_val = card.layout().itemAt(1).widget()
+            if lbl_val:
+                lbl_val.setText(val)
+
+        buku_dict = {b.get("id_buku"): b for b in self._all_books_cache}
+        recent = tracker_list[-5:]
+        self.table_dash.setRowCount(len(recent))
+
+        for row, tracker in enumerate(recent):
+            buku   = buku_dict.get(tracker.get("book_id"), {})
+            judul  = buku.get("judul", "-")
+            penuls = buku.get("penulis", "-")
+            tahun  = str(buku.get("first_published", buku.get("tahun_terbit", "-")))
+            rating = str(buku.get("avg_rating_gr", buku.get("rating", "-")))
+            status = tracker.get("status_baca", "-")
+
+            for col, (text, centered) in enumerate([
+                (judul, False), (penuls, False),
+                (tahun, True), (f"⭐ {rating}", True), (status, True)
+            ]):
+                if isinstance(text, list):
+                    safe_text = ", ".join([str(i) for i in text])
+                else:
+                    safe_text = str(text)
+
+                cell = QTableWidgetItem(safe_text)
+                if centered:
+                    cell.setTextAlignment(Qt.AlignCenter)
+                self.table_dash.setItem(row, col, cell)
+
+    def _rebuild_analytics_charts(self):
+        """Rebuild chart analytics dengan data nyata dari tracker user."""
+        if not self.current_user or not self.data_manager:
+            return
+
+        tracker_list = self.data_manager.get_tracker_user(self.current_user)
+        buku_dict    = {b.get("id_buku"): b for b in self._all_books_cache}
+
+        # Hitung status
+        status_count = {"Selesai": 0, "Sedang": 0, "Belum": 0}
+        for t in tracker_list:
+            s = t.get("status_baca", "")
+            if "Selesai" in s:
+                status_count["Selesai"] += 1
+            elif "Sedang" in s:
+                status_count["Sedang"] += 1
+            else:
+                status_count["Belum"] += 1
+
+        # Hitung kategori
+        kategori_count: dict = {}
+        for t in tracker_list:
+            buku = buku_dict.get(t.get("book_id"), {})
+            kat_raw = buku.get("kategori", buku.get("genre", "Lainnya"))
+            if isinstance(kat_raw, list):
+                kat = str(kat_raw[0]) if kat_raw else "Lainnya"
+            else:
+                kat = str(kat_raw)
+            kategori_count[kat] = kategori_count.get(kat, 0) + 1
+
+        # Hitung distribusi rating
+        ratings_raw = [t.get("rating_personal", 0) for t in tracker_list if t.get("rating_personal", 0) > 0]
+        rating_count = {f"★ {i}": ratings_raw.count(i) for i in range(1, 6)}
+
+        visualizer = DataVisualizer()
+
+        # FIX: Hapus widget lama dan pasang yang baru dengan data nyata
+        def _replace_chart(layout, placeholder_attr, new_widget):
+            ph = getattr(self, placeholder_attr, None)
+            if ph:
+                layout.removeWidget(ph)
+                ph.deleteLater()
+                setattr(self, placeholder_attr, None)
+            # Hapus widget canvas lama jika ada (index 2 setelah title+spacing)
+            while layout.count() > 2:
+                item = layout.takeAt(layout.count() - 1)
+                if item.widget():
+                    item.widget().deleteLater()
+            layout.addWidget(new_widget, 1)
+
+        data_status_display = status_count if any(v > 0 for v in status_count.values()) else None
+        pie_widget = visualizer.create_pie_chart_status(data_status_display)
+        _replace_chart(self._pie_chart_layout, "_pie_placeholder", pie_widget)
+
+        data_kat_display = kategori_count if kategori_count else None
+        bar_widget = visualizer.create_bar_chart_kategori(data_kat_display)
+        _replace_chart(self._bar_chart_layout, "_bar_placeholder", bar_widget)
+
+        data_rating_display = rating_count if any(v > 0 for v in rating_count.values()) else None
+        hist_widget = visualizer.create_histogram_rating(data_rating_display)
+        _replace_chart(self._hist_chart_layout, "_hist_placeholder", hist_widget)
+
+    # Alias lama agar kompatibel dengan kode yang sudah ada
+    def _refresh_analytics(self):
+        pass  # chart dirender saat tab analytics dibuka, bukan di awal
+
+    def show_book_detail(self, book_data=None):
+        """Tampilkan dialog detail buku. book_data bisa None (dummy) atau dict buku nyata."""
+        if book_data:
+            # FIX: Mapping key JSON buku.json ke key yang dipakai BookDetailDialog
+            mapped = {
+                "judul"    : book_data.get("judul", "-"),
+                "penulis"  : book_data.get("penulis", "-"),
+                "tahun"    : str(book_data.get("first_published", book_data.get("tahun_terbit", "-"))),
+                "kategori" : (", ".join(book_data["genre"][:2])
+                              if isinstance(book_data.get("genre"), list)
+                              else str(book_data.get("genre", book_data.get("kategori", "-")))),
+                "rating"   : str(book_data.get("avg_rating_gr", book_data.get("rating", "-"))),
+                "halaman"  : str(book_data.get("pages", book_data.get("num_pages", book_data.get("halaman", "-")))) + " Halaman",
+                "isbn"     : str(book_data.get("isbn", book_data.get("isbn13", "-"))),
+                "cover"    : book_data.get("local_cover_path", book_data.get("cover", "")),
+                "sinopsis" : book_data.get("sinopsis", book_data.get("description", "Sinopsis tidak tersedia.")),
+                # Simpan id_buku untuk fitur bookmark dari dialog
+                "id_buku"  : book_data.get("id_buku", ""),
+            }
+            dialog = BookDetailDialog(mapped)
+        else:
+            dialog = BookDetailDialog()
+
+        # FIX: Hubungkan tombol Bookmark di dialog ke fungsi _add_to_collection
+        if book_data:
+            dialog.btn_bookmark.clicked.connect(
+                lambda: self._add_to_collection(book_data)
+            )
+
+        dialog.exec_()
