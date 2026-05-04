@@ -36,7 +36,7 @@ class DataVisualizer:
     # =========================================================
     def create_pie_chart_status(self, data_status=None):
         if not data_status:
-            data_status = {'Selesai': 45, 'Sedang': 12, 'Belum': 20}
+            data_status = {'Selesai': 1, 'Sedang': 1, 'Belum': 1}
 
         fig = self._setup_figure(figsize=(6, 6))
         ax = fig.add_subplot(111)
@@ -48,7 +48,7 @@ class DataVisualizer:
         color_map = {'Selesai': self.colors['success'], 'Sedang': self.colors['warning'], 'Belum': self.colors['primary']}
         warna = [color_map.get(k, self.colors['primary']) for k in labels]
         
-        total_frames = 45
+        total_frames = 12
 
         # FIX: Hapus autopct, kita taruh teksnya di tengah donut!
         wedges, _ = ax.pie(
@@ -137,7 +137,7 @@ class DataVisualizer:
 
         kategori = list(data_kategori.keys())
         jumlah   = list(data_kategori.values())
-        total_frames = 30
+        total_frames = 12
 
         # Tambah garis bantu (grid) horizontal biar estetik
         ax.grid(axis='y', linestyle='--', alpha=0.5, color='#CBD5E1', zorder=0)
@@ -228,7 +228,7 @@ class DataVisualizer:
         bintang = list(data_rating.keys())
         jumlah  = list(data_rating.values())
         n       = len(jumlah)
-        total_frames = 30
+        total_frames = 12
         stagger = 4
 
         ax.grid(axis='y', linestyle='--', alpha=0.5, color='#CBD5E1', zorder=0)
