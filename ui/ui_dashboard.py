@@ -303,6 +303,10 @@ class DashboardScreen(QWidget):
 
         # Cache data buku untuk filtering tanpa baca ulang JSON
         self._all_books_cache = []
+        # --- FIX: VARIABEL PAGINASI ---
+        self._filtered_books_cache = [] 
+        self.current_page = 1
+        self.items_per_page = 50
         # Cache icon cover agar tidak dibaca ulang dari disk tiap filter
         self._cover_icon_cache: dict = {}
         self._default_icon = None
@@ -618,6 +622,29 @@ class DashboardScreen(QWidget):
         
         table_layout.addWidget(self.table_lib)
         
+        self.pagination_layout = QHBoxLayout()
+        self.btn_prev_page = QPushButton("« Sebelumnya")
+        self.btn_prev_page.setCursor(Qt.PointingHandCursor)
+        self.btn_prev_page.setStyleSheet("QPushButton { background-color: #E3E8EE; color: #1A1F36; border-radius: 6px; padding: 8px 15px; font-weight: bold; border: none; } QPushButton:hover { background-color: #CBD5E1; }")
+        self.btn_prev_page.clicked.connect(self._prev_page)
+
+        self.lbl_page_info = QLabel("Halaman 1 dari 1")
+        self.lbl_page_info.setAlignment(Qt.AlignCenter)
+        self.lbl_page_info.setStyleSheet("font-weight: 800; font-size: 16px; color: #4F566B;")
+
+        self.btn_next_page = QPushButton("Selanjutnya »")
+        self.btn_next_page.setCursor(Qt.PointingHandCursor)
+        self.btn_next_page.setStyleSheet(self.btn_prev_page.styleSheet())
+        self.btn_next_page.clicked.connect(self._next_page)
+
+        self.pagination_layout.addWidget(self.btn_prev_page)
+        self.pagination_layout.addStretch()
+        self.pagination_layout.addWidget(self.lbl_page_info)
+        self.pagination_layout.addStretch()
+        self.pagination_layout.addWidget(self.btn_next_page)
+
+        table_layout.addLayout(self.pagination_layout)
+
         layout.addLayout(header_layout)
         layout.addLayout(toolbar_layout)
         layout.addWidget(table_container, 1) 
@@ -960,6 +987,9 @@ class DashboardScreen(QWidget):
         if not self.data_manager:
             return
         self._all_books_cache = self.data_manager.get_semua_buku()
+        self._filtered_books_cache = self._all_books_cache.copy() # Reset filter
+        self.current_page = 1 # Kembali ke halaman 1
+        
         self._load_library_data()
         self._load_collections_data()
         self._load_overview_data()
@@ -987,15 +1017,25 @@ class DashboardScreen(QWidget):
                 )
         return self._cover_icon_cache[cover_path]
 
-    def _load_library_data(self, books=None):
-        """Isi tabel Library. Jika `books` disediakan, gunakan list itu (untuk filtering)."""
-        semua_buku = books if books is not None else self._all_books_cache
+    def _load_library_data(self):
+        """Isi tabel Library berdasarkan halaman saat ini."""
+        total_items = len(self._filtered_books_cache)
+        max_page = max(1, (total_items + self.items_per_page - 1) // self.items_per_page)
+        
+        # Potong data sesuai halaman (Slicing Array)
+        start_idx = (self.current_page - 1) * self.items_per_page
+        end_idx = min(start_idx + self.items_per_page, total_items)
+        buku_page_ini = self._filtered_books_cache[start_idx:end_idx]
 
-        # Freeze repaint selama update massal — cegah redraw tiap baris
+        # Update teks info halaman
+        self.lbl_page_info.setText(f"Halaman {self.current_page} dari {max_page}  (Total: {total_items} Buku)")
+        self.btn_prev_page.setEnabled(self.current_page > 1)
+        self.btn_next_page.setEnabled(self.current_page < max_page)
+
         self.table_lib.setUpdatesEnabled(False)
-        self.table_lib.setRowCount(len(semua_buku))
+        self.table_lib.setRowCount(len(buku_page_ini))
 
-        for row, buku in enumerate(semua_buku):
+        for row, buku in enumerate(buku_page_ini):
             judul    = str(buku.get("judul", "-"))
             penulis  = str(buku.get("penulis", "-"))
             tahun    = str(buku.get("first_published", buku.get("tahun_terbit", "-")))
@@ -1003,7 +1043,6 @@ class DashboardScreen(QWidget):
             genres   = buku.get("genre", buku.get("kategori", []))
             kategori = ", ".join(genres[:2]) if isinstance(genres, list) else str(genres)
 
-            # Ambil dari cache — tidak baca disk lagi
             icon_buku = self._get_cover_icon(buku.get("local_cover_path", ""))
 
             col_data = [
@@ -1019,7 +1058,6 @@ class DashboardScreen(QWidget):
                     cell.setTextAlignment(Qt.AlignCenter)
                 self.table_lib.setItem(row, col, cell)
 
-            # Action btn dibuat lazy — hanya buat QMenu saat diklik, bukan saat render
             self.table_lib.setCellWidget(row, 5, self._make_action_btn(buku))
 
         self.table_lib.setUpdatesEnabled(True)
@@ -1047,7 +1085,20 @@ class DashboardScreen(QWidget):
             if cocok_keyword and cocok_kategori:
                 filtered.append(buku)
 
-        self._load_library_data(filtered)
+        self._filtered_books_cache = filtered
+        self.current_page = 1 # Habis filter, selalu balik ke halaman 1
+        self._load_library_data()
+
+    def _prev_page(self):
+        if self.current_page > 1:
+            self.current_page -= 1
+            self._load_library_data()
+
+    def _next_page(self):
+        max_page = (len(self._filtered_books_cache) + self.items_per_page - 1) // self.items_per_page
+        if self.current_page < max_page:
+            self.current_page += 1
+            self._load_library_data()
 
     def _load_collections_data(self):
         """Isi tabel My Collections dengan data tracker user yang login."""
