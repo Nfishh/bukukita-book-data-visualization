@@ -1,6 +1,6 @@
 # main/screen_manager.py
-from PyQt5.QtWidgets import QMainWindow, QStackedWidget, QMessageBox
-
+from PyQt5.QtWidgets import QMainWindow, QStackedWidget, QMessageBox, QApplication
+from PyQt5.QtCore import Qt
 from data.data_manager import DataManager
 from auth.auth_manager import AuthManager
 from book.book_manager import BookManager
@@ -72,12 +72,26 @@ class ScreenManager(QMainWindow):
             return
 
         if self.auth_manager.login(username, password):
-            # Login berhasil → refresh dashboard lalu tampilkan
+            # --- FIX: LOADING STATE SAAT LOGIN ---
+            # Ubah kursor jadi muter-muter & ubah teks tombol
+            QApplication.setOverrideCursor(Qt.WaitCursor)
+            self.login_screen.btn_login.setText("Memuat Data...")
+            self.login_screen.btn_login.setEnabled(False)
+            QApplication.processEvents() # Paksa UI nampilin efek loading seketika
+
+            # Proses baca JSON yang berat jalan di sini
             self.dashboard_screen.set_user(username)
-            self.dashboard_screen.refresh_data()
+            self.dashboard_screen.refresh_data() 
+            
+            # Pindah layar ke Dashboard
             self.go_to_dashboard()
-            # Bersihkan input password setelah login
+
+            # Kembalikan kursor dan tombol login ke semula
+            QApplication.restoreOverrideCursor()
+            self.login_screen.btn_login.setText("Masuk")
+            self.login_screen.btn_login.setEnabled(True)
             self.login_screen.input_pass.clear()
+            # -------------------------------------
         else:
             QMessageBox.warning(self, "Login Gagal", "Username atau password salah.")
 

@@ -126,24 +126,6 @@
     "tgl_mulai": "2026-05-04"
   },
   {
-    "id_tracker": "EDF11D89",
-    "user_id": "1",
-    "book_id": "GR_1572_003",
-    "status_baca": "Belum Dibaca",
-    "rating_personal": 1,
-    "catatan": "",
-    "tgl_mulai": "-"
-  },
-  {
-    "id_tracker": "E92E4974",
-    "user_id": "1",
-    "book_id": "GR_1572_029",
-    "status_baca": "Belum Dibaca",
-    "rating_personal": 0,
-    "catatan": "",
-    "tgl_mulai": "-"
-  },
-  {
     "id_tracker": "D284EC88",
     "user_id": "1",
     "book_id": "GR_1572_431",

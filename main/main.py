@@ -2,6 +2,8 @@
 import sys
 import os
 
+os.environ["QT_LOGGING_RULES"] = "qt.gui.icc=false"
+
 # --- Setup sys.path agar semua modul (ui, auth, book, data) bisa diimport ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
 project_root = os.path.dirname(current_dir)
