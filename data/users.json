@@ -38,5 +38,10 @@
     "username": "zidanganteng",
     "password": "111",
     "role": "user"
+  },
+  {
+    "username": "1",
+    "password": "1",
+    "role": "user"
   }
 ]

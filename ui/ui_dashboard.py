@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QLabel,
                              QTableWidgetItem, QHeaderView, QSpacerItem, QSizePolicy,
                              QStackedWidget, QButtonGroup, QComboBox, QMenu, QAction,
                              QMessageBox, QScrollArea, QDialog, QGridLayout)
-from PyQt5.QtCore import Qt, QSize, QDate, QPoint
+from PyQt5.QtCore import Qt, QSize, QDate, QPoint, QTimer
 from PyQt5.QtGui import QIcon, QFont, QPixmap, QColor
 from PyQt5.QtSvg import QSvgWidget
 
@@ -303,6 +303,13 @@ class DashboardScreen(QWidget):
 
         # Cache data buku untuk filtering tanpa baca ulang JSON
         self._all_books_cache = []
+        # Cache icon cover agar tidak dibaca ulang dari disk tiap filter
+        self._cover_icon_cache: dict = {}
+        self._default_icon = None
+        # Debounce timer — tunda filter 300ms setelah user berhenti mengetik
+        self._search_timer = QTimer()
+        self._search_timer.setSingleShot(True)
+        self._search_timer.timeout.connect(self._do_filter_library)
 
         self.setStyleSheet("""
             QWidget {
@@ -552,8 +559,10 @@ class DashboardScreen(QWidget):
             QLineEdit { background-color: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 25px; padding: 0 20px; font-size: 18px; color: #1A1F36; }
             QLineEdit:focus { border: 2px solid #1A56DB; }
         """)
-        # FIX: Hubungkan search bar ke fungsi filter
-        self.search_bar_lib.textChanged.connect(self._filter_library)
+        # Debounce: tunda filter 300ms setelah user berhenti ketik
+        self.search_bar_lib.textChanged.connect(
+            lambda: self._search_timer.start(300)
+        )
         
         self.combo_filter_lib = QComboBox()
         self.combo_filter_lib.addItems(["Semua Kategori", "Fiksi", "Non-Fiksi", "Romance", "Mystery", "Science Fiction", "Fantasy", "Biography", "History"])
@@ -582,7 +591,7 @@ class DashboardScreen(QWidget):
             }
             QComboBox QAbstractItemView::item { min-height: 45px; padding: 10px; }
         """)
-        # FIX: Hubungkan combo filter ke fungsi filter
+        # Combo langsung filter (tidak perlu debounce, user harus klik)
         self.combo_filter_lib.currentTextChanged.connect(self._filter_library)
         
         toolbar_layout.addWidget(self.search_bar_lib)
@@ -908,29 +917,32 @@ class DashboardScreen(QWidget):
         """
 
     def _make_action_btn(self, buku: dict):
-        """Buat tombol aksi (⋮) untuk tabel Library dengan data buku nyata."""
+        """Buat tombol aksi (⋮) — QMenu dibuat LAZY saat diklik, bukan saat render."""
         btn = QPushButton()
         btn.setIcon(QIcon("assets/icons/ic_more_vert.svg"))
         btn.setIconSize(QSize(24, 24))
         btn.setCursor(Qt.PointingHandCursor)
-        btn.setStyleSheet("QPushButton { background: transparent; border: none; } QPushButton::menu-indicator { image: none; width: 0px; }")
+        btn.setStyleSheet(
+            "QPushButton { background: transparent; border: none; }"
+            "QPushButton::menu-indicator { image: none; width: 0px; }"
+        )
 
-        menu = QMenu()
-        menu.setStyleSheet("""
-            QMenu { background-color: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 8px; padding: 5px; }
-            QMenu::item { padding: 10px 20px; font-size: 16px; font-weight: bold; color: #1A1F36; border-radius: 6px; }
-            QMenu::item:selected { background-color: #F7F9FC; color: #1A56DB; }
-        """)
+        def _show_menu():
+            menu = QMenu(btn)
+            menu.setStyleSheet("""
+                QMenu { background-color: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 8px; padding: 5px; }
+                QMenu::item { padding: 10px 20px; font-size: 16px; font-weight: bold; color: #1A1F36; border-radius: 6px; }
+                QMenu::item:selected { background-color: #F7F9FC; color: #1A56DB; }
+            """)
+            action_detail = QAction(QIcon("assets/icons/ic_detail.svg"), "Detail", btn)
+            action_detail.triggered.connect(lambda: self.show_book_detail(buku))
+            menu.addAction(action_detail)
+            action_bookmark = QAction(QIcon("assets/icons/ic_bookmark.svg"), "Tambah ke Koleksi", btn)
+            action_bookmark.triggered.connect(lambda: self._add_to_collection(buku))
+            menu.addAction(action_bookmark)
+            menu.exec_(btn.mapToGlobal(btn.rect().bottomLeft()))
 
-        action_detail = QAction(QIcon("assets/icons/ic_detail.svg"), "Detail", self)
-        action_detail.triggered.connect(lambda checked, b=buku: self.show_book_detail(b))
-        menu.addAction(action_detail)
-
-        action_bookmark = QAction(QIcon("assets/icons/ic_bookmark.svg"), "Tambah ke Koleksi", self)
-        action_bookmark.triggered.connect(lambda checked, b=buku: self._add_to_collection(b))
-        menu.addAction(action_bookmark)
-
-        btn.setMenu(menu)
+        btn.clicked.connect(_show_menu)
         return btn
 
     # =========================================================
@@ -953,14 +965,35 @@ class DashboardScreen(QWidget):
         self._load_overview_data()
         # Analytics di-rebuild saat tab dibuka agar tidak berat di awal
 
+    def _get_default_icon(self) -> QIcon:
+        """Buat default icon placeholder sekali, simpan di cache."""
+        if self._default_icon is None:
+            px = QPixmap(35, 50)
+            px.fill(QColor("#CBD5E1"))
+            self._default_icon = QIcon(px)
+        return self._default_icon
+
+    def _get_cover_icon(self, cover_path: str) -> QIcon:
+        """Ambil icon cover dari cache. Baca disk hanya sekali per path."""
+        if not cover_path:
+            return self._get_default_icon()
+        if cover_path not in self._cover_icon_cache:
+            px = QPixmap(cover_path)
+            if px.isNull():
+                self._cover_icon_cache[cover_path] = self._get_default_icon()
+            else:
+                self._cover_icon_cache[cover_path] = QIcon(
+                    px.scaled(35, 50, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+                )
+        return self._cover_icon_cache[cover_path]
+
     def _load_library_data(self, books=None):
         """Isi tabel Library. Jika `books` disediakan, gunakan list itu (untuk filtering)."""
         semua_buku = books if books is not None else self._all_books_cache
-        self.table_lib.setRowCount(len(semua_buku))
 
-        placeholder_px = QPixmap(35, 50)
-        placeholder_px.fill(QColor("#CBD5E1"))
-        default_icon = QIcon(placeholder_px)
+        # Freeze repaint selama update massal — cegah redraw tiap baris
+        self.table_lib.setUpdatesEnabled(False)
+        self.table_lib.setRowCount(len(semua_buku))
 
         for row, buku in enumerate(semua_buku):
             judul    = str(buku.get("judul", "-"))
@@ -970,12 +1003,8 @@ class DashboardScreen(QWidget):
             genres   = buku.get("genre", buku.get("kategori", []))
             kategori = ", ".join(genres[:2]) if isinstance(genres, list) else str(genres)
 
-            cover_path = buku.get("local_cover_path", "")
-            icon_buku = default_icon
-            if cover_path:
-                px = QPixmap(cover_path)
-                if not px.isNull():
-                    icon_buku = QIcon(px.scaled(35, 50, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            # Ambil dari cache — tidak baca disk lagi
+            icon_buku = self._get_cover_icon(buku.get("local_cover_path", ""))
 
             col_data = [
                 ("   " + judul, False), (penulis, False),
@@ -990,10 +1019,18 @@ class DashboardScreen(QWidget):
                     cell.setTextAlignment(Qt.AlignCenter)
                 self.table_lib.setItem(row, col, cell)
 
+            # Action btn dibuat lazy — hanya buat QMenu saat diklik, bukan saat render
             self.table_lib.setCellWidget(row, 5, self._make_action_btn(buku))
 
+        self.table_lib.setUpdatesEnabled(True)
+
     def _filter_library(self):
-        """Filter tabel Library berdasarkan teks pencarian dan dropdown kategori."""
+        """Trigger debounce — dipanggil langsung saat combo berubah."""
+        self._search_timer.stop()
+        self._do_filter_library()
+
+    def _do_filter_library(self):
+        """Filter tabel Library — dipanggil setelah debounce 300ms."""
         keyword  = self.search_bar_lib.text().strip().lower()
         kategori = self.combo_filter_lib.currentText()
 
@@ -1020,12 +1057,8 @@ class DashboardScreen(QWidget):
         tracker_list = self.data_manager.get_tracker_user(self.current_user)
         buku_dict    = {b.get("id_buku"): b for b in self._all_books_cache}
 
+        self.table_col.setUpdatesEnabled(False)
         self.table_col.setRowCount(len(tracker_list))
-
-        # Placeholder (Cadangan) kalau nggak ada cover
-        col_placeholder = QPixmap(35, 50)
-        col_placeholder.fill(QColor("#CBD5E1"))
-        default_icon = QIcon(col_placeholder)
 
         for row, tracker in enumerate(tracker_list):
             buku    = buku_dict.get(tracker.get("book_id"), {})
@@ -1035,16 +1068,8 @@ class DashboardScreen(QWidget):
             catatan = tracker.get("catatan", tracker.get("anotasi", ""))
             tgl     = tracker.get("tgl_mulai", tracker.get("tanggal_mulai", "-"))
 
-            # --- FIX: Logika pengambilan Cover Buku ---
-            cover_path = buku.get("local_cover_path", "")
-            icon_buku = default_icon # Set default abu-abu dulu
-            
-            # Kalau file cover ada, ganti defaultnya dengan gambar asli
-            if cover_path:
-                px = QPixmap(cover_path)
-                if not px.isNull():
-                    icon_buku = QIcon(px.scaled(35, 50, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-            # ----------------------------------------
+            # Pakai cover cache — tidak baca disk ulang
+            icon_buku = self._get_cover_icon(buku.get("local_cover_path", ""))
 
             for col, (text, centered) in enumerate([
                 ("   " + judul, False), (status, True),
@@ -1058,6 +1083,8 @@ class DashboardScreen(QWidget):
                 if centered:
                     cell.setTextAlignment(Qt.AlignCenter)
                 self.table_col.setItem(row, col, cell)
+
+        self.table_col.setUpdatesEnabled(True)
 
     def _on_collection_selected(self):
         """Isi form CRUD saat user memilih baris di tabel Collections."""
