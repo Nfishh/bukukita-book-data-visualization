@@ -88,5 +88,77 @@
     "rating_personal": 2,
     "catatan": "",
     "tgl_mulai": "2026-05-03"
+  },
+  {
+    "id_tracker": "FFDD70FE",
+    "user_id": "zidanganteng",
+    "book_id": "GR_1572_001",
+    "status_baca": "Belum Dibaca",
+    "rating_personal": 1,
+    "catatan": "gay",
+    "tgl_mulai": "2026-05-04"
+  },
+  {
+    "id_tracker": "D7AB00FA",
+    "user_id": "zidanganteng",
+    "book_id": "GR_1572_002",
+    "status_baca": "Belum Dibaca",
+    "rating_personal": 0,
+    "catatan": "",
+    "tgl_mulai": "-"
+  },
+  {
+    "id_tracker": "EEB54DBD",
+    "user_id": "zidanganteng",
+    "book_id": "GR_1572_003",
+    "status_baca": "Belum Dibaca",
+    "rating_personal": 0,
+    "catatan": "",
+    "tgl_mulai": "-"
+  },
+  {
+    "id_tracker": "B1EC07BC",
+    "user_id": "ipi",
+    "book_id": "GR_1572_009",
+    "status_baca": "Belum Dibaca",
+    "rating_personal": 0,
+    "catatan": "",
+    "tgl_mulai": "-"
+  },
+  {
+    "id_tracker": "FDFE1108",
+    "user_id": "ipi",
+    "book_id": "GR_1572_397",
+    "status_baca": "Belum Dibaca",
+    "rating_personal": 0,
+    "catatan": "",
+    "tgl_mulai": "-"
+  },
+  {
+    "id_tracker": "46480432",
+    "user_id": "ipi",
+    "book_id": "GR_1572_002",
+    "status_baca": "Belum Dibaca",
+    "rating_personal": 0,
+    "catatan": "",
+    "tgl_mulai": "-"
+  },
+  {
+    "id_tracker": "5F32D5D7",
+    "user_id": "ipi",
+    "book_id": "GR_1572_013",
+    "status_baca": "Belum Dibaca",
+    "rating_personal": 0,
+    "catatan": "",
+    "tgl_mulai": "-"
+  },
+  {
+    "id_tracker": "FE1E264A",
+    "user_id": "ipi",
+    "book_id": "GR_1572_012",
+    "status_baca": "Belum Dibaca",
+    "rating_personal": 0,
+    "catatan": "",
+    "tgl_mulai": "-"
   }
 ]

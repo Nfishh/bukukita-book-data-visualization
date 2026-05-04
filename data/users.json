@@ -2,7 +2,7 @@
   {
     "username": "asepganteng",
     "password": "admin123",
-    "role": "user"
+    "role": "developer"
   },
   {
     "username": "d",
@@ -27,6 +27,16 @@
   {
     "username": "s",
     "password": "s",
+    "role": "user"
+  },
+  {
+    "username": "akmalganteng1234",
+    "password": "111",
+    "role": "user"
+  },
+  {
+    "username": "zidanganteng",
+    "password": "111",
     "role": "user"
   }
 ]
