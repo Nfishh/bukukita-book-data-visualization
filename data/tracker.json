@@ -88,5 +88,23 @@
     "rating_personal": 2,
     "catatan": "",
     "tgl_mulai": "2026-05-03"
+  },
+  {
+    "id_tracker": "2B04E0BB",
+    "user_id": "ipi",
+    "book_id": "GR_1572_001",
+    "status_baca": "Selesai Dibaca",
+    "rating_personal": 0,
+    "catatan": "",
+    "tgl_mulai": "2026-05-04"
+  },
+  {
+    "id_tracker": "565441DA",
+    "user_id": "s",
+    "book_id": "GR_1572_144",
+    "status_baca": "Selesai Dibaca",
+    "rating_personal": 3,
+    "catatan": "",
+    "tgl_mulai": "2026-05-04"
   }
 ]
