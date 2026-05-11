@@ -94,8 +94,8 @@
     "user_id": "zidanganteng",
     "book_id": "GR_1572_001",
     "status_baca": "Belum Dibaca",
-    "rating_personal": 1,
-    "catatan": "gay",
+    "rating_personal": 0.0,
+    "catatan": "gaysadfj asfnasldf asdjflkasjfioawe fnsdfasokdfoipsjfksdjfksd fsdjfisdjfspdafh wafsdjfsdjflksdjf",
     "tgl_mulai": "2026-05-04"
   },
   {
@@ -131,6 +131,97 @@
     "book_id": "GR_1572_431",
     "status_baca": "Belum Dibaca",
     "rating_personal": 0,
+    "catatan": "",
+    "tgl_mulai": "-"
+  },
+  {
+    "id_tracker": "2ED17C07",
+    "user_id": "s",
+    "book_id": "GR_1572_002",
+    "status_baca": "Belum Dibaca",
+    "rating_personal": 0,
+    "catatan": "",
+    "tgl_mulai": "-"
+  },
+  {
+    "id_tracker": "2CCAE0AE",
+    "user_id": "balbale",
+    "book_id": "GR_1572_001",
+    "status_baca": "Selesai Dibaca",
+    "rating_personal": 5,
+    "catatan": "",
+    "tgl_mulai": "2026-05-06"
+  },
+  {
+    "id_tracker": "65B98927",
+    "user_id": "balbale",
+    "book_id": "GR_1572_002",
+    "status_baca": "Belum Dibaca",
+    "rating_personal": 0,
+    "catatan": "",
+    "tgl_mulai": "-"
+  },
+  {
+    "id_tracker": "2EAF136D",
+    "user_id": "balbale",
+    "book_id": "GR_1572_004",
+    "status_baca": "Sedang Membaca",
+    "rating_personal": 0,
+    "catatan": "",
+    "tgl_mulai": "2026-05-06"
+  },
+  {
+    "id_tracker": "54EB9D22",
+    "user_id": "devNibos",
+    "book_id": "GR_1572_010",
+    "status_baca": "Selesai Dibaca",
+    "rating_personal": 4.6,
+    "catatan": "Bukunya keren",
+    "tgl_mulai": "2026-05-08",
+    "tgl_selesai": "2026-05-31"
+  },
+  {
+    "id_tracker": "7725B4E3",
+    "user_id": "devNibos",
+    "book_id": "GR_1572_011",
+    "status_baca": "Belum Dibaca",
+    "rating_personal": 0,
+    "catatan": "",
+    "tgl_mulai": "-"
+  },
+  {
+    "id_tracker": "18E461E1",
+    "user_id": "devNibos",
+    "book_id": "GR_1572_013",
+    "status_baca": "Belum Dibaca",
+    "rating_personal": 0,
+    "catatan": "",
+    "tgl_mulai": "-"
+  },
+  {
+    "id_tracker": "D44F0305",
+    "user_id": "devNibos",
+    "book_id": "GR_1572_015",
+    "status_baca": "Belum Dibaca",
+    "rating_personal": 0,
+    "catatan": "",
+    "tgl_mulai": "-"
+  },
+  {
+    "id_tracker": "4990E3F9",
+    "user_id": "s",
+    "book_id": "GR_1572_010",
+    "status_baca": "Selesai Dibaca",
+    "rating_personal": 4.2,
+    "catatan": "",
+    "tgl_mulai": "2026-05-08"
+  },
+  {
+    "id_tracker": "656BEE73",
+    "user_id": "zidanganteng",
+    "book_id": "GR_1572_010",
+    "status_baca": "Selesai Dibaca",
+    "rating_personal": 3.0,
     "catatan": "",
     "tgl_mulai": "-"
   }

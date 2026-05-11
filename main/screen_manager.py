@@ -1,6 +1,5 @@
-# main/screen_manager.py
-from PyQt5.QtWidgets import QMainWindow, QStackedWidget, QMessageBox, QApplication
-from PyQt5.QtCore import Qt
+from PyQt5.QtWidgets import QMainWindow, QStackedWidget, QMessageBox
+
 from data.data_manager import DataManager
 from auth.auth_manager import AuthManager
 from book.book_manager import BookManager
@@ -17,23 +16,17 @@ class ScreenManager(QMainWindow):
         self.setWindowTitle("BukuKita - Aplikasi Manajemen Buku")
         self.resize(1280, 800)
 
-        # ===================================================
-        # Inisialisasi layer data & logika (dependency chain)
-        # ===================================================
-        self.data_manager = DataManager()
-        self.auth_manager = AuthManager(self.data_manager)
-        self.book_manager = BookManager(self.data_manager)
+        self.data_manager  = DataManager()
+        self.auth_manager  = AuthManager(self.data_manager)
+        self.book_manager  = BookManager(self.data_manager)
         self.rating_system = RatingSystem(self.data_manager)
 
-        # Tumpukan layar utama
         self.stacked_widget = QStackedWidget()
         self.setCentralWidget(self.stacked_widget)
-
         self.init_screens()
 
     def init_screens(self):
-        # 1. Inisialisasi layar dengan dependensi yang tepat
-        self.login_screen = LoginScreen()
+        self.login_screen  = LoginScreen()
         self.signup_screen = SignupScreen()
         self.dashboard_screen = DashboardScreen(
             data_manager=self.data_manager,
@@ -41,22 +34,14 @@ class ScreenManager(QMainWindow):
             rating_system=self.rating_system,
         )
 
-        # 2. Masukkan ke tumpukan (0=Login, 1=Signup, 2=Dashboard)
-        self.stacked_widget.addWidget(self.login_screen)
-        self.stacked_widget.addWidget(self.signup_screen)
-        self.stacked_widget.addWidget(self.dashboard_screen)
+        self.stacked_widget.addWidget(self.login_screen)    # 0
+        self.stacked_widget.addWidget(self.signup_screen)   # 1
+        self.stacked_widget.addWidget(self.dashboard_screen)# 2
 
-        # 3. Sambungkan navigasi antar layar
         self.login_screen.btn_register.clicked.connect(self.go_to_signup)
         self.signup_screen.btn_login_redirect.clicked.connect(self.go_to_login)
-
-        # Tombol Masuk -> validasi login terlebih dahulu
         self.login_screen.btn_login.clicked.connect(self.handle_login)
-
-        # Tombol Daftar -> proses registrasi
         self.signup_screen.btn_signup.clicked.connect(self.handle_register)
-
-        # Logout dari dashboard
         self.dashboard_screen.btn_logout.clicked.connect(self.handle_logout)
 
     # =====================
@@ -72,26 +57,14 @@ class ScreenManager(QMainWindow):
             return
 
         if self.auth_manager.login(username, password):
-            # --- FIX: LOADING STATE SAAT LOGIN ---
-            # Ubah kursor jadi muter-muter & ubah teks tombol
-            QApplication.setOverrideCursor(Qt.WaitCursor)
-            self.login_screen.btn_login.setText("Memuat Data...")
-            self.login_screen.btn_login.setEnabled(False)
-            QApplication.processEvents() # Paksa UI nampilin efek loading seketika
+            # Simpan credentials jika remember me dicentang
+            self.login_screen.save_credentials_if_remembered()
 
-            # Proses baca JSON yang berat jalan di sini
-            self.dashboard_screen.set_user(username)
-            self.dashboard_screen.refresh_data() 
-            
-            # Pindah layar ke Dashboard
+            # Ambil data lengkap user untuk dashboard
+            user_data = self.data_manager.get_user_data(username) or {}
+            self.dashboard_screen.set_user(username, user_data)
+            self.dashboard_screen.refresh_data()
             self.go_to_dashboard()
-
-            # Kembalikan kursor dan tombol login ke semula
-            QApplication.restoreOverrideCursor()
-            self.login_screen.btn_login.setText("Masuk")
-            self.login_screen.btn_login.setEnabled(True)
-            self.login_screen.input_pass.clear()
-            # -------------------------------------
         else:
             QMessageBox.warning(self, "Login Gagal", "Username atau password salah.")
 
@@ -99,38 +72,38 @@ class ScreenManager(QMainWindow):
         username = self.signup_screen.input_user.text().strip()
         password = self.signup_screen.input_pass.text().strip()
         confirm  = self.signup_screen.input_confirm.text().strip()
+        nama     = self.signup_screen.input_name.text().strip()
 
         if not username or not password:
             QMessageBox.warning(self, "Pendaftaran Gagal", "Username dan password tidak boleh kosong.")
             return
-
         if password != confirm:
             QMessageBox.warning(self, "Pendaftaran Gagal", "Password dan konfirmasi password tidak cocok.")
             return
 
-        if self.auth_manager.register(username, password):
-            QMessageBox.information(self, "Pendaftaran Berhasil", f"Akun '{username}' berhasil dibuat. Silakan login.")
-            # Bersihkan form signup
+        ok, pesan = self.auth_manager.register(username, password, nama_lengkap=nama)
+        if ok:
+            QMessageBox.information(self, "Berhasil", f"Akun '{username}' berhasil dibuat. Silakan login.")
             self.signup_screen.input_name.clear()
             self.signup_screen.input_user.clear()
             self.signup_screen.input_pass.clear()
             self.signup_screen.input_confirm.clear()
             self.go_to_login()
         else:
-            QMessageBox.warning(self, "Pendaftaran Gagal", f"Username '{username}' sudah digunakan.")
+            QMessageBox.warning(self, "Pendaftaran Gagal", pesan)
 
     def handle_logout(self):
         self.auth_manager.logout()
+        # Kembalikan form login sesuai status remember me
+        self.login_screen.pre_fill_after_logout(self.dashboard_screen.current_user or "")
         self.go_to_login()
 
     # =====================
-    # Navigasi Layar
+    # Navigasi
     # =====================
 
     def go_to_login(self):
         self.stacked_widget.setCurrentIndex(0)
-        self.showNormal()
-        self.resize(1280, 800)
 
     def go_to_signup(self):
         self.stacked_widget.setCurrentIndex(1)

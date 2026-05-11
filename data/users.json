@@ -43,5 +43,18 @@
     "username": "1",
     "password": "1",
     "role": "user"
+  },
+  {
+    "username": "devNibos",
+    "password": "123",
+    "role": "user",
+    "nama_lengkap": "Muhammad Iqbal",
+    "foto_profile": "C:/Users/Lenovo/Downloads/ilustrasi-vektor-tengkorak-dengan-tulang-bersilang_43623-1523.jpg"
+  },
+  {
+    "username": "12",
+    "password": "11",
+    "role": "user",
+    "nama_lengkap": "sueb"
   }
 ]

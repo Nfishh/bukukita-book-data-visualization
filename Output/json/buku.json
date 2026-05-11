@@ -227,7 +227,9 @@
     "first_published": "2007",
     "isbn": "9789791227025",
     "cover_url": "https://m.media-amazon.com/images/S/compressed.photo.goodreads.com/books/1489733485i/1464757.jpg",
-    "local_cover_path": "assets\\covers\\GR_1572_010.jpg"
+    "local_cover_path": "assets\\covers\\GR_1572_010.jpg",
+    "rating_bukukita": 3.93,
+    "total_voter_bukukita": 3
   },
   {
     "id_buku": "GR_1572_011",

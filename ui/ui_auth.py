@@ -1,6 +1,6 @@
-from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QLabel, 
+from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QLabel,
                              QLineEdit, QPushButton, QFrame, QCheckBox, QAction, QMessageBox)
-from PyQt5.QtCore import Qt, pyqtSignal
+from PyQt5.QtCore import Qt, pyqtSignal, QSettings
 from PyQt5.QtGui import QIcon 
 from PyQt5.QtSvg import QSvgWidget
 
@@ -13,9 +13,12 @@ class LoginScreen(QWidget):
     def __init__(self, auth_manager):
         super().__init__()
         self.auth_manager = auth_manager
+
+        self.settings = QSettings("BukuKita", "AppDesktop")
         self.setStyleSheet("background-color: #FFFFFF; font-family: 'Segoe UI', sans-serif;")
         self.setup_ui()
-        
+        self.load_remembered_credentials()
+    
     def setup_ui(self):
         main_layout = QHBoxLayout(self)
         main_layout.setContentsMargins(0, 0, 0, 0)
@@ -192,6 +195,16 @@ class LoginScreen(QWidget):
             self.input_pass.setEchoMode(QLineEdit.Password)
             self.action_eye.setIcon(QIcon("assets/icons/ic_eye_close.svg"))
 
+    def load_remembered_credentials(self):
+        saved_user = self.settings.value("remember_user", "")
+        # FIX: Baca ulang password-nya dari sistem
+        saved_pass = self.settings.value("remember_pass", "") 
+        
+        if saved_user and saved_pass:
+            self.input_user.setText(saved_user)
+            self.input_pass.setText(saved_pass) # Masukin passwordnya
+            self.chk_remember.setChecked(True)
+
     def handle_login(self):
         username = self.input_user.text()
         password = self.input_pass.text()
@@ -203,10 +216,18 @@ class LoginScreen(QWidget):
         is_success = self.auth_manager.login(username, password)
         
         if is_success:
-            self.input_pass.clear()
+            if self.chk_remember.isChecked():
+                self.settings.setValue("remember_user", username)
+                # FIX: Simpan lagi passwordnya
+                self.settings.setValue("remember_pass", password) 
+            else:
+                self.settings.remove("remember_user")
+                self.settings.remove("remember_pass")
+                self.input_user.clear()
+                self.input_pass.clear() # Bersihin kalau nggak dicentang
+                
             self.login_successful.emit() 
         else:
-            # FIX: Pakai Custom Pop-up biar cakep!
             self.show_custom_popup("Gagal Login", "Yah, Username atau Password-mu salah!\nSilakan periksa dan coba lagi ya.", "error")
 
 
@@ -429,7 +450,7 @@ class SignupScreen(QWidget):
         if not username or not password or not confirm:
             self.show_custom_popup("Peringatan", "Ups! Semua kolom wajib diisi ya.", "warning")
             return
-            
+
         if password != confirm:
             self.show_custom_popup("Peringatan", "Password dan Konfirmasi Password tidak cocok!", "warning")
             return

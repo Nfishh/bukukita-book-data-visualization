@@ -1,7 +1,8 @@
-from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QLabel, 
+import re
+from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QLabel,
                              QLineEdit, QPushButton, QFrame, QSpacerItem, QSizePolicy, QAction)
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QIcon 
+from PyQt5.QtGui import QIcon
 from PyQt5.QtSvg import QSvgWidget
 
 class SignupScreen(QWidget):
@@ -108,6 +109,64 @@ class SignupScreen(QWidget):
         self.input_pass.setFixedHeight(60) 
         self.input_pass.setStyleSheet(input_style)
 
+
+        # --- Indikator Kekuatan Password ---
+        strength_container = QFrame()
+        strength_container.setStyleSheet("background: transparent; border: none;")
+        strength_layout = QVBoxLayout(strength_container)
+        strength_layout.setContentsMargins(0, 4, 0, 0)
+        strength_layout.setSpacing(6)
+
+        # Bar kekuatan (4 segmen)
+        bar_row = QHBoxLayout()
+        bar_row.setSpacing(6)
+        self._strength_bars = []
+        for _ in range(4):
+            bar = QFrame()
+            bar.setFixedHeight(5)
+            bar.setStyleSheet("background-color: #E5E7EB; border-radius: 2px;")
+            bar_row.addWidget(bar)
+            self._strength_bars.append(bar)
+
+        self._lbl_strength = QLabel("")
+        self._lbl_strength.setStyleSheet("font-size: 13px; font-weight: 700; color: #9CA3AF; background: transparent;")
+
+        bar_label_row = QHBoxLayout()
+        bar_label_row.addLayout(bar_row)
+        bar_label_row.addWidget(self._lbl_strength)
+
+        # Checklist syarat
+        self._checks = {}
+        checks_def = [
+            ("len",   "Minimal 8 karakter"),
+            ("upper", "Huruf besar (A-Z)"),
+            ("lower", "Huruf kecil (a-z)"),
+            ("digit", "Angka (0-9)"),
+            ("spec",  "Karakter unik (!@#$%...)"),
+        ]
+        check_grid = QHBoxLayout()
+        check_grid.setSpacing(16)
+        col_left  = QVBoxLayout()
+        col_left.setSpacing(3)
+        col_right = QVBoxLayout()
+        col_right.setSpacing(3)
+        for idx, (key, text) in enumerate(checks_def):
+            lbl = QLabel(f"○  {text}")
+            lbl.setStyleSheet("font-size: 13px; color: #9CA3AF; background: transparent;")
+            self._checks[key] = lbl
+            if idx < 3:
+                col_left.addWidget(lbl)
+            else:
+                col_right.addWidget(lbl)
+        check_grid.addLayout(col_left)
+        check_grid.addLayout(col_right)
+
+        strength_layout.addLayout(bar_label_row)
+        strength_layout.addLayout(check_grid)
+
+        # Hubungkan input_pass ke updater
+        self.input_pass.textChanged.connect(self._update_strength)
+
         # FIX MATA: Dipisah cara manggil Icon-nya biar gak kena TypeError
         self.action_eye = QAction(self)
         self.action_eye.setIcon(QIcon("assets/icons/ic_eye_close.svg"))
@@ -177,7 +236,8 @@ class SignupScreen(QWidget):
         
         form_layout.addWidget(lbl_password)
         form_layout.addWidget(self.input_pass)
-        
+        form_layout.addWidget(strength_container)
+
         form_layout.addWidget(lbl_confirm)
         form_layout.addWidget(self.input_confirm)
         
@@ -191,6 +251,58 @@ class SignupScreen(QWidget):
         # Proporsi Kiri 45% : Kanan 55%
         main_layout.addWidget(left_frame, 45)
         main_layout.addWidget(right_frame, 55)
+
+
+    def _update_strength(self, text):
+        """Update bar kekuatan dan checklist saat user mengetik password."""
+        checks = {
+            "len"  : len(text) >= 8,
+            "upper": bool(re.search(r"[A-Z]", text)),
+            "lower": bool(re.search(r"[a-z]", text)),
+            "digit": bool(re.search(r"[0-9]", text)),
+            "spec" : bool(re.search(r"[^A-Za-z0-9]", text)),
+        }
+        score = sum(checks.values())
+
+        # Update checklist label
+        labels = {
+            "len"  : "Minimal 8 karakter",
+            "upper": "Huruf besar (A-Z)",
+            "lower": "Huruf kecil (a-z)",
+            "digit": "Angka (0-9)",
+            "spec" : "Karakter unik (!@#$%...)",
+        }
+        for key, lbl in self._checks.items():
+            if checks[key]:
+                lbl.setText(f"✓  {labels[key]}")
+                lbl.setStyleSheet("font-size: 13px; color: #059669; font-weight: 700; background: transparent;")
+            else:
+                lbl.setText(f"○  {labels[key]}")
+                lbl.setStyleSheet("font-size: 13px; color: #9CA3AF; background: transparent;")
+
+        # Tentukan warna & label kekuatan
+        if score <= 1:
+            color, label = "#EF4444", "Lemah"
+        elif score == 2:
+            color, label = "#F59E0B", "Cukup"
+        elif score == 3:
+            color, label = "#3B82F6", "Baik"
+        elif score == 4:
+            color, label = "#10B981", "Kuat"
+        else:
+            color, label = "#059669", "Sangat Kuat"
+
+        for i, bar in enumerate(self._strength_bars):
+            if i < score and text:
+                bar.setStyleSheet(f"background-color: {color}; border-radius: 2px;")
+            else:
+                bar.setStyleSheet("background-color: #E5E7EB; border-radius: 2px;")
+
+        self._lbl_strength.setText(label if text else "")
+        self._lbl_strength.setStyleSheet(
+            f"font-size: 13px; font-weight: 700; color: {color}; background: transparent;"
+            if text else "font-size: 13px; color: #9CA3AF; background: transparent;"
+        )
 
     def toggle_password(self):
         if self.input_pass.echoMode() == QLineEdit.Password:

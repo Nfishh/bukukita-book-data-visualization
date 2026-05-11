@@ -1,3 +1,4 @@
+import os
 from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QLabel,
                              QLineEdit, QPushButton, QFrame, QTableWidget,
                              QTableWidgetItem, QHeaderView, QSpacerItem, QSizePolicy,
@@ -10,10 +11,35 @@ from PyQt5.QtSvg import QSvgWidget
 # FIX: Import path disesuaikan dengan struktur folder ui/
 from ui.ui_detail import BookDetailDialog
 from ui.data_viz import DataVisualizer
+from ui.ui_profile import ProfileDialog, HelpDialog
 
 # ==========================================
 # Custom Modern Calendar Popup
 # ==========================================
+def _make_round_pixmap(path, size):
+    """Fungsi helper khusus Dashboard untuk memotong gambar jadi bulat"""
+    from PyQt5.QtGui import QPixmap, QPainter, QPainterPath
+    from PyQt5.QtCore import Qt
+    
+    src = QPixmap(path)
+    if src.isNull():
+        return QPixmap()
+    src = src.scaled(size, size, Qt.KeepAspectRatioByExpanding, Qt.SmoothTransformation)
+    x = (src.width() - size) // 2
+    y = (src.height() - size) // 2
+    src = src.copy(x, y, size, size)
+
+    result = QPixmap(size, size)
+    result.fill(Qt.transparent)
+    painter = QPainter(result)
+    painter.setRenderHint(QPainter.Antialiasing)
+    path_clip = QPainterPath()
+    path_clip.addEllipse(0, 0, size, size)
+    painter.setClipPath(path_clip)
+    painter.drawPixmap(0, 0, src)
+    painter.end()
+    return result
+
 class ModernCalendarPopup(QDialog):
     """Popup kalender modern pengganti QCalendarWidget bawaan Qt yang jadul."""
 
@@ -303,6 +329,8 @@ class DashboardScreen(QWidget):
 
         # Cache data buku untuk filtering tanpa baca ulang JSON
         self._all_books_cache = []
+        # Data profil user aktif
+        self._user_data: dict = {}
         # --- FIX: VARIABEL PAGINASI ---
         self._filtered_books_cache = [] 
         self.current_page = 1
@@ -489,16 +517,17 @@ class DashboardScreen(QWidget):
         title_vbox.addWidget(lbl_title)
         title_vbox.addWidget(self.lbl_welcome)
         
-        btn_user = QPushButton()
-        btn_user.setIcon(QIcon("assets/icons/ic_user.svg"))
-        btn_user.setIconSize(QSize(30, 30))
-        btn_user.setFixedSize(50, 50)
-        btn_user.setStyleSheet("background-color: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 25px;")
-        btn_user.setCursor(Qt.PointingHandCursor)
+        self.btn_user = QPushButton()
+        self.btn_user.setIcon(QIcon("assets/icons/ic_user.svg"))
+        self.btn_user.setIconSize(QSize(30, 30))
+        self.btn_user.setFixedSize(50, 50)
+        self.btn_user.setStyleSheet("background-color: #FFFFFF; border: 1px solid #E3E8EE; border-radius: 25px;")
+        self.btn_user.setCursor(Qt.PointingHandCursor)
+        self.btn_user.clicked.connect(self._show_user_popup)
         
         header_layout.addLayout(title_vbox)
         header_layout.addStretch()
-        header_layout.addWidget(btn_user)
+        header_layout.addWidget(self.btn_user)
         
         stats_layout = QHBoxLayout()
         stats_layout.setSpacing(20)
@@ -695,9 +724,10 @@ class DashboardScreen(QWidget):
         """)
         
         self.combo_status = QComboBox()
-        self.combo_status.addItems(["Sedang Membaca", "Selesai Dibaca", "Belum Dibaca"])
+        self.combo_status.addItems(["Sedang Membaca", "Selesai Dibaca", "Belum Dibaca", "Drop"])
         self.combo_status.setFixedHeight(45)
         self.combo_status.setFixedWidth(200)
+        self.combo_status.currentTextChanged.connect(self._on_status_changed)
         
         # Custom date picker: QLineEdit + tombol kalender modern
         self._date_container = QFrame()
@@ -720,7 +750,7 @@ class DashboardScreen(QWidget):
         date_inner.setSpacing(4)
 
         self.input_col_date = QLineEdit()
-        self.input_col_date.setPlaceholderText("yyyy-MM-dd")
+        self.input_col_date.setPlaceholderText("YYYY-MM-DD")
         self.input_col_date.setReadOnly(True)
         self.input_col_date.setStyleSheet("""
             QLineEdit {
@@ -729,8 +759,10 @@ class DashboardScreen(QWidget):
             }
         """)
 
-        self._btn_cal = QPushButton("📅")
-        self._btn_cal.setFixedSize(30, 30)
+        self._btn_cal = QPushButton()
+        self._btn_cal.setIcon(QIcon("assets/icons/ic_calendar.svg"))
+        self._btn_cal.setIconSize(QSize(25, 25))
+        self._btn_cal.setFixedSize(35, 35)
         self._btn_cal.setCursor(Qt.PointingHandCursor)
         self._btn_cal.setStyleSheet("""
             QPushButton {
@@ -744,14 +776,59 @@ class DashboardScreen(QWidget):
         date_inner.addWidget(self.input_col_date)
         date_inner.addWidget(self._btn_cal)
 
+        # Date selesai — struktur identik dengan date_container
+        self._date_end_container = QFrame()
+        date_end_container = self._date_end_container
+        date_end_container.setFixedHeight(45)
+        date_end_container.setFixedWidth(180)
+        date_end_container.setStyleSheet("""
+            QFrame {
+                border: 1.5px solid #E3E8EE;
+                border-radius: 8px;
+                background-color: rgba(247, 249, 252, 0.7);
+            }
+            QFrame:focus-within {
+                border: 2px solid #1A56DB;
+                background-color: #FFFFFF;
+            }
+        """)
+        date_end_inner = QHBoxLayout(date_end_container)
+        date_end_inner.setContentsMargins(10, 0, 4, 0)
+        date_end_inner.setSpacing(4)
+
+        self.input_col_date_end = QLineEdit()
+        self.input_col_date_end.setPlaceholderText("Tgl Selesai")
+        self.input_col_date_end.setReadOnly(True)
+        self.input_col_date_end.setStyleSheet("""
+            QLineEdit {
+                border: none; background: transparent;
+                font-size: 15px; color: #374151; font-weight: 600;
+            }
+        """)
+
+        self._btn_cal_end = QPushButton()
+        self._btn_cal_end.setIcon(QIcon("assets/icons/ic_calendar.svg"))
+        self._btn_cal_end.setIconSize(QSize(25, 25))
+        self._btn_cal_end.setFixedSize(35, 35)
+        self._btn_cal_end.setCursor(Qt.PointingHandCursor)
+        self._btn_cal_end.setStyleSheet("""
+            QPushButton { background: transparent; border: none; border-radius: 6px; }
+            QPushButton:hover { background-color: #EFF6FF; }
+        """)
+        self._btn_cal_end.clicked.connect(self._open_calendar_end)
+
+        date_end_inner.addWidget(self.input_col_date_end)
+        date_end_inner.addWidget(self._btn_cal_end)
+
         self.input_col_rating = QLineEdit()
-        self.input_col_rating.setPlaceholderText("Rating (1-5)")
+        self.input_col_rating.setPlaceholderText("1.0 – 5.0 (Selesai dulu)")
         self.input_col_rating.setFixedHeight(45)
         self.input_col_rating.setFixedWidth(150)
         
         row1_layout.addWidget(self.input_col_title)
         row1_layout.addWidget(self.combo_status)
         row1_layout.addWidget(date_container)
+        row1_layout.addWidget(date_end_container)
         row1_layout.addWidget(self.input_col_rating)
         
         row2_layout = QHBoxLayout()
@@ -819,8 +896,8 @@ class DashboardScreen(QWidget):
         table_layout = QVBoxLayout(table_container)
         table_layout.setContentsMargins(25, 25, 25, 25)
         
-        self.table_col = QTableWidget(0, 5) 
-        self.table_col.setHorizontalHeaderLabels(["Judul Buku", "Status", "Rating Pribadi", "Anotasi / Catatan", "Tgl Mulai"])
+        self.table_col = QTableWidget(0, 6) 
+        self.table_col.setHorizontalHeaderLabels(["Judul Buku", "Status", "Rating", "Anotasi / Catatan", "Mulai", "Selesai"])
         self.table_col.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.table_col.setEditTriggers(QTableWidget.NoEditTriggers) 
         self.table_col.setFocusPolicy(Qt.NoFocus)
@@ -976,11 +1053,14 @@ class DashboardScreen(QWidget):
     # INTEGRASI DATA — dipanggil oleh ScreenManager
     # =========================================================
 
-    def set_user(self, username: str):
-        """Simpan username user yang sedang login dan tampilkan greeting."""
+    def set_user(self, username: str, user_data: dict = None):
+        """Simpan username & data profil user yang sedang login."""
         self.current_user = username
+        self._user_data   = dict(user_data) if user_data else {}
         if hasattr(self, "lbl_welcome"):
-            self.lbl_welcome.setText(f"Selamat datang kembali, {username}! 👋")
+            nama = self._user_data.get("nama_lengkap") or username
+            self.lbl_welcome.setText(f"Selamat datang kembali, {nama}! 👋")
+        self._update_user_avatar()
 
     def refresh_data(self):
         """Muat ulang semua data dari DataManager ke seluruh halaman."""
@@ -1115,16 +1195,20 @@ class DashboardScreen(QWidget):
             buku    = buku_dict.get(tracker.get("book_id"), {})
             judul   = buku.get("judul", tracker.get("book_id", "-"))
             status  = tracker.get("status_baca", "-")
-            rating  = str(tracker.get("rating_personal", 0))
+            _r = tracker.get("rating_personal", 0) or 0
+            rating  = f"{_r:g}" if _r else "—"
             catatan = tracker.get("catatan", tracker.get("anotasi", ""))
             tgl     = tracker.get("tgl_mulai", tracker.get("tanggal_mulai", "-"))
 
             # Pakai cover cache — tidak baca disk ulang
             icon_buku = self._get_cover_icon(buku.get("local_cover_path", ""))
 
+            tgl_selesai_val = tracker.get("tgl_selesai", "")
+            tgl_selesai_display = tgl_selesai_val if tgl_selesai_val not in ("", None) else "-"
+
             for col, (text, centered) in enumerate([
                 ("   " + judul, False), (status, True),
-                (rating, True), (catatan, False), (tgl, True)
+                (rating, True), (catatan, False), (tgl, True), (tgl_selesai_display, True)
             ]):
                 cell = QTableWidgetItem(text)
                 if col == 0:
@@ -1160,12 +1244,31 @@ class DashboardScreen(QWidget):
 
         tgl_str = tracker_data.get("tgl_mulai", tracker_data.get("tanggal_mulai", ""))
         self.input_col_date.setText(tgl_str if tgl_str not in ("-", "", None) else "")
+        tgl_end_str = tracker_data.get("tgl_selesai", "")
+        if hasattr(self, "input_col_date_end"):
+            self.input_col_date_end.setText(tgl_end_str if tgl_end_str not in ("-", "", None) else "")
 
-        self.input_col_rating.setText(str(tracker_data.get("rating_personal", "")))
+        # Tampilkan float dengan bersih: 3.0 → "3", 3.5 → "3.5"
+        r = tracker_data.get("rating_personal", 0)
+        self.input_col_rating.setText(
+            f"{r:g}" if r else ""
+        )
+        # Aktif/disable field rating berdasarkan status
+        self._on_status_changed(self.combo_status.currentText())
         catatan = tracker_data.get("catatan", tracker_data.get("anotasi", ""))
         self.input_col_notes.setText(catatan)
 
         self._selected_tracker = tracker_data
+
+    def _open_calendar_end(self):
+        """Buka kalender untuk tanggal selesai baca."""
+        current_str = self.input_col_date_end.text().strip()
+        current_qdate = QDate.fromString(current_str, "yyyy-MM-dd")
+        if not current_qdate.isValid():
+            current_qdate = QDate.currentDate()
+        result = ModernCalendarPopup.get_date(current_qdate, self._btn_cal_end, self)
+        if result:
+            self.input_col_date_end.setText(result.toString("yyyy-MM-dd"))
 
     def _open_calendar(self):
         """Buka ModernCalendarPopup dan update input_col_date."""
@@ -1176,6 +1279,33 @@ class DashboardScreen(QWidget):
         result = ModernCalendarPopup.get_date(current_qdate, self._date_container, self)
         if result:
             self.input_col_date.setText(result.toString("yyyy-MM-dd"))
+
+    def _on_status_changed(self, status: str):
+        """Atur enable/disable field rating & tanggal selesai sesuai status."""
+        is_selesai = (status == "Selesai Dibaca")
+        is_drop    = (status == "Drop")
+
+        # Rating: hanya boleh saat Selesai atau Drop
+        self.input_col_rating.setEnabled(is_selesai or is_drop)
+        if is_selesai or is_drop:
+            self.input_col_rating.setPlaceholderText("1.0 – 5.0")
+        else:
+            self.input_col_rating.clear()
+            self.input_col_rating.setPlaceholderText("Selesaikan buku dulu")
+
+        # Tanggal selesai: aktif saat Selesai atau Drop
+        if hasattr(self, "_date_end_container"):
+            self._date_end_container.setEnabled(is_selesai or is_drop)
+            opacity = "1.0" if (is_selesai or is_drop) else "0.4"
+            self._date_end_container.setStyleSheet(f"""
+                QFrame {{
+                    border: 1.5px solid #E3E8EE; border-radius: 8px;
+                    background-color: rgba(247, 249, 252, 0.7);
+                    opacity: {opacity};
+                }}
+            """)
+            if not (is_selesai or is_drop):
+                self.input_col_date_end.clear()
 
     def _save_collection_edit(self):
         """Simpan perubahan status/rating/catatan ke tracker.json."""
@@ -1189,22 +1319,46 @@ class DashboardScreen(QWidget):
 
         tgl_mulai  = self.input_col_date.text().strip() or "-"
 
-        rating_text = self.input_col_rating.text().strip()
-        try:
-            rating = int(rating_text) if rating_text else 0
-            if rating and not (1 <= rating <= 5):
-                QMessageBox.warning(self, "Rating Tidak Valid", "Rating harus antara 1–5.")
+        # Parse rating — support titik DAN koma sebagai desimal
+        rating_text = self.input_col_rating.text().strip().replace(',', '.')
+        rating = 0.0
+        if rating_text:
+            if status != "Selesai Dibaca":
+                QMessageBox.warning(self, "Rating Tidak Bisa Diisi",
+                    "Rating hanya bisa diberikan setelah status = Selesai Dibaca.")
                 return
-        except ValueError:
-            QMessageBox.warning(self, "Rating Tidak Valid", "Masukkan angka untuk rating.")
-            return
+            try:
+                rating = float(rating_text)
+            except ValueError:
+                QMessageBox.warning(self, "Rating Tidak Valid",
+                    "Masukkan angka. Contoh: 4 atau 4.5 atau 4,5")
+                return
+            if not (1.0 <= rating <= 5.0):
+                QMessageBox.warning(self, "Rating Tidak Valid",
+                    "Rating harus antara 1.0 sampai 5.0.")
+                return
+            rating = round(rating, 2)
+
+        tgl_selesai = ""
+        if hasattr(self, "input_col_date_end"):
+            tgl_selesai = self.input_col_date_end.text().strip() or ""
 
         self.data_manager.update_tracker(tracker_id, {
             "status_baca"    : status,
             "rating_personal": rating,
             "catatan"        : catatan,
             "tgl_mulai"      : tgl_mulai,
+            "tgl_selesai"    : tgl_selesai,
         })
+
+        # Akumulasi rating ke buku.json via rating_system
+        if rating and status == "Selesai Dibaca" and self.rating_system:
+            book_id = self._selected_tracker.get("book_id", "")
+            self.rating_system.simpan_rating_personal(
+                self.current_user, book_id, rating
+            )
+            # Refresh cache buku agar detail dialog tampilkan rating terbaru
+            self._all_books_cache = self.data_manager.get_semua_buku()
 
         QMessageBox.information(self, "Berhasil", "Koleksi berhasil diperbarui.")
         self._selected_tracker = None
@@ -1393,6 +1547,130 @@ class DashboardScreen(QWidget):
     def _refresh_analytics(self):
         pass  # chart dirender saat tab analytics dibuka, bukan di awal
 
+    def _update_user_avatar(self):
+        """Update tombol profil: tampilkan foto jika ada, fallback ke icon."""
+        foto = self._user_data.get("foto_profile", "")
+        if foto and os.path.exists(foto):
+            px = _make_round_pixmap(foto, 50)
+            if not px.isNull():
+                self.btn_user.setIcon(QIcon(px))
+                self.btn_user.setIconSize(QSize(50, 50))
+                return
+        self.btn_user.setIcon(QIcon("assets/icons/ic_user.svg"))
+        self.btn_user.setIconSize(QSize(30, 30))
+
+    def _show_user_popup(self):
+        """Tampilkan popup mini profil di bawah tombol avatar."""
+        popup = QDialog(self, Qt.Popup | Qt.FramelessWindowHint)
+        popup.setAttribute(Qt.WA_TranslucentBackground)
+        popup.setFixedWidth(280)
+
+        outer = QVBoxLayout(popup)
+        outer.setContentsMargins(8, 8, 8, 8)
+
+        card = QFrame()
+        card.setObjectName("popCard")
+        card.setStyleSheet("""
+            QFrame#popCard {
+                background-color: #FFFFFF;
+                border-radius: 14px;
+                border: 1px solid #E2E8F0;
+            }
+        """)
+        from PyQt5.QtWidgets import QGraphicsDropShadowEffect
+        sh = QGraphicsDropShadowEffect()
+        sh.setBlurRadius(20)
+        sh.setColor(QColor(0, 0, 0, 30))
+        sh.setOffset(0, 6)
+        card.setGraphicsEffect(sh)
+
+        lay = QVBoxLayout(card)
+        lay.setContentsMargins(18, 18, 18, 14)
+        lay.setSpacing(0)
+
+        # Avatar kecil + nama + username
+        top = QHBoxLayout()
+        top.setSpacing(12)
+        from ui.ui_profile import _AvatarLabel
+        av = _AvatarLabel(size=44)
+        foto = self._user_data.get("foto_profile", "")
+        if foto and os.path.exists(foto):
+            av.set_image(foto)
+        av.setStyleSheet("border-radius:22px;")
+
+        info = QVBoxLayout()
+        info.setSpacing(1)
+        nama  = self._user_data.get("nama_lengkap") or self.current_user or "—"
+        lbl_n = QLabel(nama)
+        lbl_n.setStyleSheet("font-size:14px; font-weight:800; color:#1A1F36; background:transparent;")
+        lbl_u = QLabel(f"@{self.current_user or ''}")
+        lbl_u.setStyleSheet("font-size:12px; color:#94A3B8; background:transparent;")
+        info.addWidget(lbl_n)
+        info.addWidget(lbl_u)
+        top.addWidget(av)
+        top.addLayout(info)
+        lay.addLayout(top)
+
+        # Divider
+        div = QFrame()
+        div.setFrameShape(QFrame.HLine)
+        div.setStyleSheet("color:#F1F5F9; margin-top:12px; margin-bottom:4px;")
+        lay.addWidget(div)
+
+        # Menu item style
+        menu_item_style = """
+            QPushButton { text-align:left; padding:10px 6px; font-size:14px; font-weight:600;
+                color:#374151; background:transparent; border:none; border-radius:8px; }
+            QPushButton:hover { background-color:#F7F9FC; color:#1A56DB; }
+        """
+
+        btn_profile = QPushButton("  Detail Profil")
+        btn_profile.setIcon(QIcon("assets/icons/ic_detailAccount.svg"))
+        btn_profile.setStyleSheet(menu_item_style)
+        btn_profile.setCursor(Qt.PointingHandCursor)
+        btn_profile.clicked.connect(lambda: (popup.accept(), self._open_profile_dialog()))
+
+        btn_help = QPushButton("  Bantuan & Panduan")
+        btn_help.setIcon(QIcon("assets/icons/ic_help.svg"))
+        btn_help.setStyleSheet(menu_item_style)
+        btn_help.setCursor(Qt.PointingHandCursor)
+        btn_help.clicked.connect(lambda: (popup.accept(), HelpDialog(self).exec_()))
+
+        lay.addWidget(btn_profile)
+        lay.addWidget(btn_help)
+        outer.addWidget(card)
+
+        # Posisi popup di bawah btn_user
+        gp = self.btn_user.mapToGlobal(QPoint(0, self.btn_user.height() + 6))
+        gp.setX(gp.x() - 280 + self.btn_user.width())
+        popup.move(gp)
+        popup.exec_()
+
+    def _open_profile_dialog(self):
+        """Buka dialog profil lengkap."""
+        if not self.current_user:
+            return
+        tracker_list = self.data_manager.get_tracker_user(self.current_user)
+        buku_dict    = {b.get("id_buku"): b for b in self._all_books_cache}
+        dlg = ProfileDialog(
+            username=self.current_user,
+            user_data=self._user_data,
+            tracker_list=tracker_list,
+            buku_dict=buku_dict,
+            data_manager=self.data_manager,
+            parent=self
+        )
+        dlg.profile_updated.connect(self._on_profile_updated)
+        dlg.exec_()
+
+    def _on_profile_updated(self, new_data: dict):
+        """Sinkronisasi dashboard setelah profil disimpan."""
+        self._user_data = new_data
+        nama = new_data.get("nama_lengkap") or self.current_user
+        if hasattr(self, "lbl_welcome"):
+            self.lbl_welcome.setText(f"Selamat datang kembali, {nama}! 👋")
+        self._update_user_avatar()
+
     def show_book_detail(self, book_data=None):
         """Tampilkan dialog detail buku. book_data bisa None (dummy) atau dict buku nyata."""
         if book_data:
@@ -1408,18 +1686,34 @@ class DashboardScreen(QWidget):
                 "halaman"  : str(book_data.get("pages", book_data.get("num_pages", book_data.get("halaman", "-")))) + " Halaman",
                 "isbn"     : str(book_data.get("isbn", book_data.get("isbn13", "-"))),
                 "cover"    : book_data.get("local_cover_path", book_data.get("cover", "")),
-                "sinopsis" : book_data.get("sinopsis", book_data.get("description", "Sinopsis tidak tersedia.")),
+                "sinopsis"              : book_data.get("sinopsis", book_data.get("description", "Sinopsis tidak tersedia.")),
+                # Rating akumulasi BukuKita
+                "rating_bukukita"       : book_data.get("rating_bukukita", 0),
+                "total_voter_bukukita"  : book_data.get("total_voter_bukukita", 0),
                 # Simpan id_buku untuk fitur bookmark dari dialog
-                "id_buku"  : book_data.get("id_buku", ""),
+                "id_buku"               : book_data.get("id_buku", ""),
             }
             dialog = BookDetailDialog(mapped)
         else:
             dialog = BookDetailDialog()
 
-        # FIX: Hubungkan tombol Bookmark di dialog ke fungsi _add_to_collection
+        # Hubungkan tombol Bookmark
         if book_data:
             dialog.btn_bookmark.clicked.connect(
                 lambda: self._add_to_collection(book_data)
             )
+
+        # Tampilkan aktivitas user jika buku ada di koleksi
+        if book_data and self.current_user:
+            book_id = book_data.get("id_buku", "")
+            semua_tracker = self.data_manager.get_semua_tracker()
+            tracker_user  = next(
+                (t for t in semua_tracker
+                 if t.get("user_id") == self.current_user
+                 and t.get("book_id") == book_id),
+                None
+            )
+            if tracker_user:
+                dialog.set_aktivitas(tracker_user)
 
         dialog.exec_()

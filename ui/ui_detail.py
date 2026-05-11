@@ -132,6 +132,7 @@ class BookDetailDialog(QDialog):
         scroll.setWidgetResizable(True)
         scroll.setStyleSheet("""
             QScrollArea { border: none; background: transparent; }
+
             QScrollBar:vertical {
                 border: none;
                 background: transparent;
@@ -139,16 +140,32 @@ class BookDetailDialog(QDialog):
                 margin: 0px;
             }
             QScrollBar::handle:vertical {
-                background-color: rgba(148, 163, 184, 0.5);
-                min-height: 40px;
+                background-color: rgba(148, 163, 184, 0.45);
+                min-height: 50px;
                 border-radius: 3px;
             }
             QScrollBar::handle:vertical:hover {
-                background-color: rgba(100, 116, 139, 0.9);
+                background-color: rgba(71, 85, 105, 0.75);
             }
+            QScrollBar::handle:vertical:pressed {
+                background-color: rgba(30, 64, 175, 0.8);
+            }
+
             QScrollBar::add-line:vertical,
             QScrollBar::sub-line:vertical {
-                height: 0px; background: none;
+                height: 0px;
+                width: 0px;
+                border: none;
+                background: none;
+                subcontrol-origin: margin;
+            }
+            QScrollBar::up-arrow:vertical,
+            QScrollBar::down-arrow:vertical {
+                width: 0px;
+                height: 0px;
+                background: none;
+                border: none;
+                image: none;
             }
             QScrollBar::add-page:vertical,
             QScrollBar::sub-page:vertical {
@@ -222,27 +239,85 @@ class BookDetailDialog(QDialog):
             rating_val = 0.0
         rating_str = f"{rating_val:.2f}".rstrip("0").rstrip(".")
 
+        # ── Rating Goodreads ──
         rating_row = QHBoxLayout()
         rating_row.setSpacing(10)
         rating_row.setAlignment(Qt.AlignLeft)
 
-        star_widget = StarRatingWidget(rating_val, star_size=30)
+        star_widget = StarRatingWidget(rating_val, star_size=26)
         star_widget.setStyleSheet("background: transparent;")
+        star_widget.setMinimumSize(star_widget.sizeHint())
 
         lbl_angka = QLabel(rating_str)
         lbl_angka.setStyleSheet(
-            "font-size: 26px; font-weight: 800; color: #1A1F36; background: transparent;"
+            "font-size: 24px; font-weight: 800; color: #1A1F36; background: transparent;"
         )
         lbl_angka.setAlignment(Qt.AlignVCenter)
 
+        lbl_gr_source = QLabel("Goodreads")
+        lbl_gr_source.setStyleSheet(
+            "font-size: 12px; font-weight: 600; color: #9CA3AF;"
+            "background: #F1F5F9; border-radius: 6px; padding: 2px 8px;"
+        )
+        lbl_gr_source.setAlignment(Qt.AlignVCenter)
+
         rating_row.addWidget(star_widget)
         rating_row.addWidget(lbl_angka)
+        rating_row.addWidget(lbl_gr_source)
+        rating_row.addStretch()
+
+        # ── Rating BukuKita (akumulasi user) ──
+        try:
+            bk_rating = float(self.book.get("rating_bukukita", 0) or 0)
+            bk_voters = int(self.book.get("total_voter_bukukita", 0) or 0)
+        except (ValueError, TypeError):
+            bk_rating, bk_voters = 0.0, 0
+
+        bk_row = QHBoxLayout()
+        bk_row.setSpacing(10)
+        bk_row.setAlignment(Qt.AlignLeft)
+
+        if bk_rating > 0:
+            bk_stars = StarRatingWidget(bk_rating, star_size=26)
+            bk_stars.setStyleSheet("background: transparent;")
+            bk_stars.setMinimumSize(bk_stars.sizeHint())
+            bk_rating_str = f"{bk_rating:g}"
+            lbl_bk_angka = QLabel(bk_rating_str)
+            lbl_bk_angka.setStyleSheet(
+                "font-size: 24px; font-weight: 800; color: #1A1F36; background: transparent;"
+            )
+            lbl_bk_angka.setAlignment(Qt.AlignVCenter)
+            lbl_bk_voter = QLabel(f"{bk_voters} pembaca")
+            lbl_bk_voter.setStyleSheet(
+                "font-size: 12px; font-weight: 600; color: #1A56DB;"
+                "background: #EFF6FF; border-radius: 6px; padding: 2px 8px;"
+            )
+            lbl_bk_voter.setAlignment(Qt.AlignVCenter)
+            bk_row.addWidget(bk_stars)
+            bk_row.addWidget(lbl_bk_angka)
+            bk_row.addWidget(lbl_bk_voter)
+            bk_row.addStretch()
+        else:
+            lbl_bk_empty = QLabel("Belum ada rating dari pengguna BukuKita")
+            lbl_bk_empty.setStyleSheet(
+                "font-size: 13px; color: #9CA3AF; background: transparent; font-style: italic;"
+            )
+            bk_row.addWidget(lbl_bk_empty)
+
+        # Label sumber BukuKita
+        lbl_bk_source = QLabel("BukuKita")
+        lbl_bk_source.setStyleSheet(
+            "font-size: 12px; font-weight: 600; color: #1A56DB;"
+            "background: #EFF6FF; border-radius: 6px; padding: 2px 8px;"
+        )
 
         title_info_layout.addWidget(lbl_judul)
         title_info_layout.addWidget(lbl_penulis)
         title_info_layout.addWidget(lbl_tahun)
-        title_info_layout.addSpacing(8)
+        title_info_layout.addSpacing(10)
         title_info_layout.addLayout(rating_row)
+        title_info_layout.addSpacing(4)
+        title_info_layout.addLayout(bk_row)
         title_info_layout.addStretch()
 
         header_layout.addWidget(self.lbl_cover)
@@ -290,14 +365,76 @@ class BookDetailDialog(QDialog):
             QPushButton:hover { background-color: #1E40AF; }
         """)
 
+        # ── Aktivitas Saya (opsional, diisi dari dashboard) ──
+        self._aktivitas_widget = self._build_aktivitas_section()
+
         layout.addLayout(header_layout)
         layout.addLayout(info_layout)
         layout.addWidget(lbl_sinopsis_title)
         layout.addWidget(lbl_sinopsis)
+        layout.addWidget(self._aktivitas_widget)
         layout.addWidget(self.btn_bookmark)
 
         scroll.setWidget(content_widget)
         main_layout.addWidget(scroll)
+
+    def _build_aktivitas_section(self):
+        """Section aktivitas user — tersembunyi sampai set_aktivitas() dipanggil."""
+        frame = QFrame()
+        frame.setStyleSheet("QFrame { background: transparent; border: none; }")
+        frame.setVisible(False)
+        lay = QVBoxLayout(frame)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(8)
+
+        lbl_title = QLabel("Aktivitas Saya")
+        lbl_title.setStyleSheet(
+            "font-size: 18px; font-weight: 800; color: #1A1F36; background: transparent;"
+        )
+        self._lbl_aktif_status = QLabel()
+        self._lbl_aktif_status.setStyleSheet("font-size: 15px; font-weight: 700; background: transparent;")
+
+        row_tgl = QHBoxLayout()
+        row_tgl.setSpacing(20)
+        self._lbl_tgl_mulai  = QLabel()
+        self._lbl_tgl_selesai = QLabel()
+        for lbl in [self._lbl_tgl_mulai, self._lbl_tgl_selesai]:
+            lbl.setStyleSheet("font-size: 13px; color: #6B7280; background: transparent;")
+        row_tgl.addWidget(self._lbl_tgl_mulai)
+        row_tgl.addWidget(self._lbl_tgl_selesai)
+        row_tgl.addStretch()
+
+        sep = QFrame()
+        sep.setFrameShape(QFrame.HLine)
+        sep.setStyleSheet("color: #E2E8F0; margin: 4px 0;")
+
+        lay.addWidget(sep)
+        lay.addWidget(lbl_title)
+        lay.addWidget(self._lbl_aktif_status)
+        lay.addLayout(row_tgl)
+        return frame
+
+    def set_aktivitas(self, tracker: dict):
+        """Isi section aktivitas dari data tracker user."""
+        if not tracker:
+            return
+        STATUS_COLOR = {
+            "Selesai" : "#059669",
+            "Sedang"  : "#1A56DB",
+            "Belum"   : "#D97706",
+            "Drop"    : "#DC2626",
+        }
+        status = tracker.get("status_baca", "-")
+        clr = next((v for k, v in STATUS_COLOR.items() if k in status), "#6B7280")
+        self._lbl_aktif_status.setText(status)
+        self._lbl_aktif_status.setStyleSheet(
+            f"font-size: 15px; font-weight: 700; color: {clr}; background: transparent;"
+        )
+        tgl_mulai   = tracker.get("tgl_mulai", tracker.get("tanggal_mulai", "")) or "-"
+        tgl_selesai = tracker.get("tgl_selesai", "") or "-"
+        self._lbl_tgl_mulai.setText(f"▶ Mulai: {tgl_mulai}")
+        self._lbl_tgl_selesai.setText(f"✓ Selesai: {tgl_selesai}")
+        self._aktivitas_widget.setVisible(True)
 
     def create_info_item(self, label, value):
         container = QFrame()
