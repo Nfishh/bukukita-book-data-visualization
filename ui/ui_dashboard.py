@@ -4,14 +4,42 @@ from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QLabel,
                              QTableWidgetItem, QHeaderView, QSpacerItem, QSizePolicy,
                              QStackedWidget, QButtonGroup, QComboBox, QMenu, QAction,
                              QMessageBox, QScrollArea, QDialog, QGridLayout)
-from PyQt5.QtCore import Qt, QSize, QDate, QPoint, QTimer
-from PyQt5.QtGui import QIcon, QFont, QPixmap, QColor
+from PyQt5.QtCore import Qt, QSize, QDate, QPoint, QTimer, pyqtSignal, QRect
+from PyQt5.QtGui import QIcon, QFont, QPixmap, QColor, QPainter, QFontMetrics
 from PyQt5.QtSvg import QSvgWidget
 
 # FIX: Import path disesuaikan dengan struktur folder ui/
 from ui.ui_detail import BookDetailDialog
 from ui.data_viz import DataVisualizer
-from ui.ui_profile import ProfileDialog, HelpDialog
+from ui.ui_profile import ProfileDialog, HelpDialog, SettingsDialog
+
+class StarRatingWidget(QWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedSize(120, 24)
+        self.value = 0.0
+    
+    def set_value(self, val):
+        self.value = val
+        self.update()
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+        font = QFont("Segoe UI", 16)
+        painter.setFont(font)
+        
+        fm = QFontMetrics(font)
+        text_width = fm.horizontalAdvance("★★★★★")
+        text_rect = QRect(0, 0, text_width, self.height())
+        
+        painter.setPen(QColor("#D1D5DB"))
+        painter.drawText(text_rect, Qt.AlignLeft | Qt.AlignVCenter, "★★★★★")
+        
+        clip_width = int((self.value / 5.0) * text_width)
+        painter.setClipRect(0, 0, clip_width, self.height())
+        painter.setPen(QColor("#F59E0B"))
+        painter.drawText(text_rect, Qt.AlignLeft | Qt.AlignVCenter, "★★★★★")
 
 # ==========================================
 # Custom Modern Calendar Popup
@@ -517,6 +545,15 @@ class DashboardScreen(QWidget):
         title_vbox.addWidget(lbl_title)
         title_vbox.addWidget(self.lbl_welcome)
         
+        user_container = QWidget()
+        user_layout = QHBoxLayout(user_container)
+        user_layout.setContentsMargins(0, 0, 0, 0)
+        user_layout.setSpacing(12)
+        
+        self.lbl_top_user_name = QLabel()
+        self.lbl_top_user_name.setStyleSheet("font-size: 16px; font-weight: 700; color: #1A1F36;")
+        self.lbl_top_user_name.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+
         self.btn_user = QPushButton()
         self.btn_user.setIcon(QIcon("assets/icons/ic_user.svg"))
         self.btn_user.setIconSize(QSize(30, 30))
@@ -525,9 +562,12 @@ class DashboardScreen(QWidget):
         self.btn_user.setCursor(Qt.PointingHandCursor)
         self.btn_user.clicked.connect(self._show_user_popup)
         
+        user_layout.addWidget(self.lbl_top_user_name)
+        user_layout.addWidget(self.btn_user)
+
         header_layout.addLayout(title_vbox)
         header_layout.addStretch()
-        header_layout.addWidget(self.btn_user)
+        header_layout.addWidget(user_container)
         
         stats_layout = QHBoxLayout()
         stats_layout.setSpacing(20)
@@ -648,6 +688,8 @@ class DashboardScreen(QWidget):
         self.table_lib.verticalHeader().setDefaultSectionSize(75)
         self.table_lib.verticalHeader().setVisible(False)
         self.table_lib.setStyleSheet(self._table_stylesheet())
+        # Klik sel judul (col 0) → buka detail buku
+        self.table_lib.cellClicked.connect(self._on_lib_cell_clicked)
         
         table_layout.addWidget(self.table_lib)
         
@@ -723,11 +765,25 @@ class DashboardScreen(QWidget):
             }
         """)
         
+        def _wrap(title, w):
+            lay = QVBoxLayout()
+            lay.setContentsMargins(0, 0, 0, 0)
+            lay.setSpacing(6)
+            lbl = QLabel(title)
+            lbl.setStyleSheet("font-size: 13px; font-weight: bold; color: #1E293B; border: none; background: transparent;")
+            lay.addWidget(lbl)
+            lay.addWidget(w)
+            wrapper = QWidget()
+            wrapper.setStyleSheet("background: transparent; border: none;")
+            wrapper.setLayout(lay)
+            return wrapper
+
         self.combo_status = QComboBox()
         self.combo_status.addItems(["Sedang Membaca", "Selesai Dibaca", "Belum Dibaca", "Drop"])
         self.combo_status.setFixedHeight(45)
         self.combo_status.setFixedWidth(200)
         self.combo_status.currentTextChanged.connect(self._on_status_changed)
+        status_wrap = _wrap("Status", self.combo_status)
         
         # Custom date picker: QLineEdit + tombol kalender modern
         self._date_container = QFrame()
@@ -750,7 +806,7 @@ class DashboardScreen(QWidget):
         date_inner.setSpacing(4)
 
         self.input_col_date = QLineEdit()
-        self.input_col_date.setPlaceholderText("YYYY-MM-DD")
+        self.input_col_date.setPlaceholderText("Tanggal Mulai")
         self.input_col_date.setReadOnly(True)
         self.input_col_date.setStyleSheet("""
             QLineEdit {
@@ -797,7 +853,7 @@ class DashboardScreen(QWidget):
         date_end_inner.setSpacing(4)
 
         self.input_col_date_end = QLineEdit()
-        self.input_col_date_end.setPlaceholderText("Tgl Selesai")
+        self.input_col_date_end.setPlaceholderText("Tanggal Selesai")
         self.input_col_date_end.setReadOnly(True)
         self.input_col_date_end.setStyleSheet("""
             QLineEdit {
@@ -825,11 +881,25 @@ class DashboardScreen(QWidget):
         self.input_col_rating.setFixedHeight(45)
         self.input_col_rating.setFixedWidth(150)
         
-        row1_layout.addWidget(self.input_col_title)
-        row1_layout.addWidget(self.combo_status)
-        row1_layout.addWidget(date_container)
-        row1_layout.addWidget(date_end_container)
-        row1_layout.addWidget(self.input_col_rating)
+        rating_widget_inner = QWidget()
+        rating_widget_inner.setStyleSheet("background: transparent; border: none;")
+        inner_lay = QVBoxLayout(rating_widget_inner)
+        inner_lay.setContentsMargins(0, 0, 0, 0)
+        inner_lay.setSpacing(4)
+        
+        self.star_widget = StarRatingWidget()
+        inner_lay.addWidget(self.star_widget, alignment=Qt.AlignCenter)
+        inner_lay.addWidget(self.input_col_rating)
+        
+        rating_wrap = _wrap("Rating", rating_widget_inner)
+        
+        self.input_col_rating.textChanged.connect(self._on_rating_text_changed)
+        
+        row1_layout.addWidget(self.input_col_title, 1, alignment=Qt.AlignBottom)
+        row1_layout.addWidget(status_wrap, alignment=Qt.AlignBottom)
+        row1_layout.addWidget(_wrap("Tanggal Mulai", date_container), alignment=Qt.AlignBottom)
+        row1_layout.addWidget(_wrap("Tanggal Selesai", date_end_container), alignment=Qt.AlignBottom)
+        row1_layout.addWidget(rating_wrap, alignment=Qt.AlignBottom)
         
         row2_layout = QHBoxLayout()
         row2_layout.setSpacing(15)
@@ -910,10 +980,12 @@ class DashboardScreen(QWidget):
             QTableWidget::item:selected { background-color: #EFF6FF; color: #1A56DB; }
         """)
 
-        # FIX: Context menu klik kanan
+        # Double-click baris → buka popup edit
+        self.table_col.doubleClicked.connect(self._on_collection_double_click)
+        # Context menu klik kanan
         self.table_col.setContextMenuPolicy(Qt.CustomContextMenu)
         self.table_col.customContextMenuRequested.connect(self._show_col_context_menu)
-        # FIX: Sambungkan seleksi baris ke form CRUD
+        # Seleksi baris → isi form CRUD
         self.table_col.itemSelectionChanged.connect(self._on_collection_selected)
         
         table_layout.addWidget(self.table_col)
@@ -924,80 +996,110 @@ class DashboardScreen(QWidget):
         
         return page
 
+    def _on_rating_text_changed(self, text):
+        try:
+            val = float(text.replace(',', '.'))
+            val = max(0.0, min(5.0, val))
+            self.star_widget.set_value(val)
+        except ValueError:
+            self.star_widget.set_value(0.0)
+
     def build_analytics_page(self):
-        """Build analytics page — chart akan diisi data nyata saat pertama kali dibuka."""
+        """Analytics page — scrollable, semua chart full-width."""
         page = QWidget()
-        layout = QVBoxLayout(page)
+        page.setStyleSheet("background-color: #F7F9FC;")
+        page_layout = QVBoxLayout(page)
+        page_layout.setContentsMargins(0, 0, 0, 0)
+        page_layout.setSpacing(0)
+
+        # ── Scroll Area ──────────────────────────────────────────────
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setStyleSheet("""
+            QScrollArea { border: none; background: transparent; }
+            QScrollBar:vertical {
+                border: none; background: transparent; width: 6px; margin: 0;
+            }
+            QScrollBar::handle:vertical {
+                background: rgba(148,163,184,0.45); min-height: 50px; border-radius: 3px;
+            }
+            QScrollBar::handle:vertical:hover { background: rgba(71,85,105,0.75); }
+            QScrollBar::handle:vertical:pressed { background: rgba(30,64,175,0.8); }
+            QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+                height: 0; width: 0; border: none; background: none;
+            }
+            QScrollBar::up-arrow:vertical, QScrollBar::down-arrow:vertical {
+                width: 0; height: 0; background: none; image: none;
+            }
+            QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical {
+                background: transparent;
+            }
+        """)
+
+        content = QWidget()
+        content.setStyleSheet("background: transparent;")
+        layout = QVBoxLayout(content)
         layout.setContentsMargins(40, 40, 40, 40)
         layout.setSpacing(20)
 
-        header_layout = QHBoxLayout()
+        # ── Header ───────────────────────────────────────────────────
         lbl_title = QLabel("Analytics")
         lbl_title.setStyleSheet("font-size: 38px; font-weight: 800; color: #1A1F36;")
-        header_layout.addWidget(lbl_title)
-        header_layout.addStretch()
+        layout.addWidget(lbl_title)
 
-        top_charts_layout = QHBoxLayout()
-        top_charts_layout.setSpacing(20)
+        # Helper buat card container
+        def _card(title, layout_ref_attr, placeholder_attr):
+            card = QFrame()
+            card.setStyleSheet(
+                "background-color: #FFFFFF; border-radius: 12px; border: 1px solid #E3E8EE;"
+            )
+            cl = QVBoxLayout(card)
+            cl.setContentsMargins(25, 20, 25, 20)
+            cl.setSpacing(10)
+            lbl = QLabel(title)
+            lbl.setStyleSheet(
+                "font-size: 18px; font-weight: 800; color: #1A1F36; border: none;"
+            )
+            cl.addWidget(lbl)
+            ph = QLabel("Data akan muncul setelah login")
+            ph.setAlignment(Qt.AlignCenter)
+            ph.setStyleSheet("color: #9CA3AF; font-size: 15px;")
+            cl.addWidget(ph)
+            cl.addStretch()
+            setattr(self, layout_ref_attr, cl)
+            setattr(self, placeholder_attr, ph)
+            return card
 
-        # --- Pie Chart Card ---
-        pie_card = QFrame()
-        pie_card.setStyleSheet("background-color: #FFFFFF; border-radius: 12px; border: 1px solid #E3E8EE;")
-        pie_layout = QVBoxLayout(pie_card)
-        pie_layout.setContentsMargins(25, 25, 25, 25)
-        lbl_pie_title = QLabel("Status Bacaan")
-        lbl_pie_title.setStyleSheet("font-size: 20px; font-weight: bold; color: #1A1F36; border: none;")
-        # FIX: Simpan referensi layout agar bisa diupdate chart-nya
-        self._pie_chart_layout = pie_layout
-        pie_layout.addWidget(lbl_pie_title)
-        pie_layout.addSpacing(15)
-        # Placeholder label sebelum data tersedia
-        self._pie_placeholder = QLabel("Data akan muncul setelah login")
-        self._pie_placeholder.setAlignment(Qt.AlignCenter)
-        self._pie_placeholder.setStyleSheet("color: #9CA3AF; font-size: 16px;")
-        pie_layout.addWidget(self._pie_placeholder)
-        pie_layout.addStretch()
+        # ── Baris 1: Pie Status + Pie Genre (50:50) ──────────────────
+        row1 = QHBoxLayout()
+        row1.setSpacing(20)
+        row1.addWidget(_card("Status Bacaan (Kamu)",
+                             "_pie_chart_layout", "_pie_placeholder"))
+        row1.addWidget(_card("Komposisi Genre Katalog",
+                             "_pie_kat_layout", "_pie_kat_placeholder"))
+        layout.addLayout(row1)
 
-        # --- Bar Chart Card ---
-        bar_card = QFrame()
-        bar_card.setStyleSheet("background-color: #FFFFFF; border-radius: 12px; border: 1px solid #E3E8EE;")
-        bar_layout = QVBoxLayout(bar_card)
-        bar_layout.setContentsMargins(25, 25, 25, 25)
-        lbl_bar_title = QLabel("Komposisi Kategori Buku")
-        lbl_bar_title.setStyleSheet("font-size: 20px; font-weight: bold; color: #1A1F36; border: none;")
-        self._bar_chart_layout = bar_layout
-        bar_layout.addWidget(lbl_bar_title)
-        bar_layout.addSpacing(15)
-        self._bar_placeholder = QLabel("Data akan muncul setelah login")
-        self._bar_placeholder.setAlignment(Qt.AlignCenter)
-        self._bar_placeholder.setStyleSheet("color: #9CA3AF; font-size: 16px;")
-        bar_layout.addWidget(self._bar_placeholder)
-        bar_layout.addStretch()
+        # ── Bar Chart Kategori — LEBAR PENUH ─────────────────────────
+        layout.addWidget(_card("Komposisi Kategori Buku — Semua Koleksimu",
+                               "_bar_chart_layout", "_bar_placeholder"))
 
-        top_charts_layout.addWidget(pie_card)
-        top_charts_layout.addWidget(bar_card)
+        # ── Histogram Rating ─────────────────────────────────────────
+        layout.addWidget(_card("Persebaran Rating Pribadi",
+                               "_hist_chart_layout", "_hist_placeholder"))
 
-        # --- Histogram Rating ---
-        bottom_card = QFrame()
-        bottom_card.setStyleSheet("background-color: #FFFFFF; border-radius: 12px; border: 1px solid #E3E8EE;")
-        bottom_layout = QVBoxLayout(bottom_card)
-        bottom_layout.setContentsMargins(25, 25, 25, 25)
-        lbl_bottom_title = QLabel("Persebaran Rating Pribadi")
-        lbl_bottom_title.setStyleSheet("font-size: 20px; font-weight: bold; color: #1A1F36; border: none;")
-        self._hist_chart_layout = bottom_layout
-        bottom_layout.addWidget(lbl_bottom_title)
-        bottom_layout.addSpacing(15)
-        self._hist_placeholder = QLabel("Data akan muncul setelah login")
-        self._hist_placeholder.setAlignment(Qt.AlignCenter)
-        self._hist_placeholder.setStyleSheet("color: #9CA3AF; font-size: 16px;")
-        bottom_layout.addWidget(self._hist_placeholder)
-        bottom_layout.addStretch()
+        # ── Bar Status Semua User — LEBAR PENUH ──────────────────────
+        layout.addWidget(_card("Status Bacaan — Semua Pengguna",
+                               "_global_chart_layout", "_global_placeholder"))
 
-        layout.addLayout(header_layout)
-        layout.addLayout(top_charts_layout, 1)
-        layout.addWidget(bottom_card, 1)
+        # ── Trend Line Genre per Tahun — LEBAR PENUH ─────────────────
+        layout.addWidget(_card("Tren Genre Berdasarkan Tahun Terbit",
+                               "_trend_chart_layout", "_trend_placeholder"))
 
+        layout.addStretch()
+        scroll.setWidget(content)
+        page_layout.addWidget(scroll)
         return page
+
 
     # =========================================================
     # HELPER
@@ -1060,6 +1162,8 @@ class DashboardScreen(QWidget):
         if hasattr(self, "lbl_welcome"):
             nama = self._user_data.get("nama_lengkap") or username
             self.lbl_welcome.setText(f"Selamat datang kembali, {nama}! 👋")
+            if hasattr(self, "lbl_top_user_name"):
+                self.lbl_top_user_name.setText(nama)
         self._update_user_avatar()
 
     def refresh_data(self):
@@ -1109,8 +1213,9 @@ class DashboardScreen(QWidget):
 
         # Update teks info halaman
         self.lbl_page_info.setText(f"Halaman {self.current_page} dari {max_page}  (Total: {total_items} Buku)")
-        self.btn_prev_page.setEnabled(self.current_page > 1)
-        self.btn_next_page.setEnabled(self.current_page < max_page)
+        # Sembunyikan tombol di halaman ujung
+        self.btn_prev_page.setVisible(self.current_page > 1)
+        self.btn_next_page.setVisible(self.current_page < max_page)
 
         self.table_lib.setUpdatesEnabled(False)
         self.table_lib.setRowCount(len(buku_page_ini))
@@ -1141,6 +1246,33 @@ class DashboardScreen(QWidget):
             self.table_lib.setCellWidget(row, 5, self._make_action_btn(buku))
 
         self.table_lib.setUpdatesEnabled(True)
+
+
+    def _on_lib_cell_clicked(self, row, col):
+        """Klik kolom judul/cover (col 0) di Library → buka detail buku."""
+        if col != 0:
+            return
+        # Ambil data buku dari filtered list berdasarkan baris yang diklik
+        visible_books = self._get_current_page_books()
+        if row < len(visible_books):
+            self.show_book_detail(visible_books[row])
+
+    def _get_current_page_books(self):
+        """Return list buku yang sedang ditampilkan di halaman saat ini."""
+        keyword  = self.search_bar_lib.text().strip().lower()
+        kategori = self.combo_filter_lib.currentText()
+        filtered = []
+        for buku in self._all_books_cache:
+            judul     = str(buku.get("judul", "")).lower()
+            penulis   = str(buku.get("penulis", "")).lower()
+            genres    = buku.get("genre", buku.get("kategori", []))
+            genre_str = ", ".join(genres).lower() if isinstance(genres, list) else str(genres).lower()
+            if ((not keyword) or keyword in judul or keyword in penulis) and                (kategori == "Semua Kategori" or kategori.lower() in genre_str):
+                filtered.append(buku)
+        page_size = getattr(self, 'items_per_page', 20)
+        cur_page  = getattr(self, 'current_page', 1)
+        start = (cur_page - 1) * page_size
+        return filtered[start:start + page_size]
 
     def _filter_library(self):
         """Trigger debounce — dipanggil langsung saat combo berubah."""
@@ -1221,6 +1353,200 @@ class DashboardScreen(QWidget):
 
         self.table_col.setUpdatesEnabled(True)
 
+
+    def _on_collection_double_click(self, index):
+        """Double-click baris koleksi → buka popup dialog edit."""
+        row = index.row()
+        item = self.table_col.item(row, 0)
+        if not item:
+            return
+        tracker_data = item.data(Qt.UserRole)
+        if not tracker_data:
+            return
+
+        buku_dict = {b.get("id_buku"): b for b in self._all_books_cache}
+        buku = buku_dict.get(tracker_data.get("book_id"), {})
+        judul = buku.get("judul", tracker_data.get("book_id", "-"))
+
+        # --- Buat dialog popup ---
+        dialog = QDialog(self, Qt.Dialog)
+        dialog.setWindowTitle("Edit Koleksi")
+        dialog.setFixedWidth(480)
+        dialog.setStyleSheet("background-color: #FFFFFF; font-family: 'Segoe UI';")
+
+        outer = QVBoxLayout(dialog)
+        outer.setContentsMargins(28, 24, 28, 24)
+        outer.setSpacing(16)
+
+        # Judul buku
+        lbl_judul = QLabel(judul)
+        lbl_judul.setStyleSheet("font-size: 20px; font-weight: 800; color: #1A1F36;")
+        lbl_judul.setWordWrap(True)
+        outer.addWidget(lbl_judul)
+
+        # Separator
+        sep = QFrame()
+        sep.setFrameShape(QFrame.HLine)
+        sep.setStyleSheet("color: #E2E8F0;")
+        outer.addWidget(sep)
+
+        field_style = """
+            QComboBox, QLineEdit {
+                border: 1.5px solid #E3E8EE; border-radius: 8px;
+                padding: 0 12px; font-size: 15px; color: #374151;
+                background-color: #F8FAFC; min-height: 38px;
+            }
+            QComboBox:focus, QLineEdit:focus { border: 2px solid #1A56DB; background: #FFF; }
+            QComboBox::drop-down { border: none; width: 30px; }
+            QComboBox::down-arrow { image: url('assets/icons/ic_chevron_down.svg'); width: 16px; height: 16px; }
+            QComboBox QAbstractItemView {
+                background: #FFF; border: 1px solid #E3E8EE;
+                selection-background-color: #EFF6FF; selection-color: #1A56DB;
+            }
+            QComboBox QAbstractItemView::item { min-height: 36px; padding: 6px; }
+        """
+
+        def _row(label_text, widget):
+            row = QHBoxLayout()
+            lbl = QLabel(label_text)
+            lbl.setFixedWidth(130)
+            lbl.setStyleSheet("font-size: 14px; font-weight: 600; color: #6B7280;")
+            row.addWidget(lbl)
+            row.addWidget(widget)
+            outer.addLayout(row)
+
+        # Status
+        combo_status = QComboBox()
+        combo_status.addItems(["Sedang Membaca", "Selesai Dibaca", "Belum Dibaca", "Drop"])
+        cur_status = tracker_data.get("status_baca", "Belum Dibaca")
+        idx = combo_status.findText(cur_status)
+        if idx >= 0: combo_status.setCurrentIndex(idx)
+        combo_status.setStyleSheet(field_style)
+        _row("Status", combo_status)
+
+        # Rating
+        input_rating = QLineEdit()
+        input_rating.setPlaceholderText("1 – 5")
+        cur_rating = tracker_data.get("rating_personal", 0)
+        if cur_rating: input_rating.setText(str(cur_rating))
+        input_rating.setStyleSheet(field_style)
+        _row("Rating ⭐", input_rating)
+
+        # Anotasi
+        input_anotasi = QLineEdit()
+        input_anotasi.setPlaceholderText("Tulis kesan atau ulasan...")
+        input_anotasi.setText(tracker_data.get("catatan", tracker_data.get("anotasi", "")))
+        input_anotasi.setStyleSheet(field_style)
+        _row("Anotasi", input_anotasi)
+
+        # Tanggal Mulai
+        input_tgl_mulai = QLineEdit()
+        input_tgl_mulai.setPlaceholderText("yyyy-MM-dd")
+        input_tgl_mulai.setReadOnly(True)
+        tgl_mulai = tracker_data.get("tgl_mulai", tracker_data.get("tanggal_mulai", ""))
+        if tgl_mulai and tgl_mulai != "-": input_tgl_mulai.setText(tgl_mulai)
+        input_tgl_mulai.setStyleSheet(field_style)
+
+        btn_cal_mulai = QPushButton("📅")
+        btn_cal_mulai.setFixedSize(34, 34)
+        btn_cal_mulai.setCursor(Qt.PointingHandCursor)
+        btn_cal_mulai.setStyleSheet("QPushButton{background:transparent;border:none;font-size:16px;border-radius:6px;}QPushButton:hover{background:#EFF6FF;}")
+
+        tgl_mulai_row = QHBoxLayout()
+        lbl_tm = QLabel("Tgl Mulai")
+        lbl_tm.setFixedWidth(130)
+        lbl_tm.setStyleSheet("font-size: 14px; font-weight: 600; color: #6B7280;")
+        tgl_mulai_row.addWidget(lbl_tm)
+        tgl_mulai_row.addWidget(input_tgl_mulai)
+        tgl_mulai_row.addWidget(btn_cal_mulai)
+        outer.addLayout(tgl_mulai_row)
+
+        # Tanggal Selesai
+        input_tgl_selesai = QLineEdit()
+        input_tgl_selesai.setPlaceholderText("yyyy-MM-dd")
+        input_tgl_selesai.setReadOnly(True)
+        tgl_selesai = tracker_data.get("tgl_selesai", "")
+        if tgl_selesai and tgl_selesai != "-": input_tgl_selesai.setText(tgl_selesai)
+        input_tgl_selesai.setStyleSheet(field_style)
+
+        btn_cal_selesai = QPushButton("📅")
+        btn_cal_selesai.setFixedSize(34, 34)
+        btn_cal_selesai.setCursor(Qt.PointingHandCursor)
+        btn_cal_selesai.setStyleSheet(btn_cal_mulai.styleSheet())
+
+        tgl_selesai_row = QHBoxLayout()
+        lbl_ts = QLabel("Tgl Selesai")
+        lbl_ts.setFixedWidth(130)
+        lbl_ts.setStyleSheet("font-size: 14px; font-weight: 600; color: #6B7280;")
+        tgl_selesai_row.addWidget(lbl_ts)
+        tgl_selesai_row.addWidget(input_tgl_selesai)
+        tgl_selesai_row.addWidget(btn_cal_selesai)
+        outer.addLayout(tgl_selesai_row)
+
+        # Sambungkan tombol kalender popup
+        def open_cal(field, btn):
+            from screen_manager import ScreenManager  # hindari circular
+            cur = QDate.fromString(field.text(), "yyyy-MM-dd")
+            if not cur.isValid(): cur = QDate.currentDate()
+            result = ModernCalendarPopup.get_date(cur, btn, dialog)
+            if result: field.setText(result.toString("yyyy-MM-dd"))
+
+        btn_cal_mulai.clicked.connect(lambda: open_cal(input_tgl_mulai, btn_cal_mulai))
+        btn_cal_selesai.clicked.connect(lambda: open_cal(input_tgl_selesai, btn_cal_selesai))
+
+        # Tombol aksi
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(12)
+
+        btn_hapus = QPushButton("Hapus dari Koleksi")
+        btn_hapus.setFixedHeight(42)
+        btn_hapus.setCursor(Qt.PointingHandCursor)
+        btn_hapus.setStyleSheet("QPushButton{background:#FEF2F2;color:#DC2626;border:1.5px solid #FECACA;border-radius:8px;font-weight:700;font-size:14px;}QPushButton:hover{background:#FEE2E2;}")
+
+        btn_simpan = QPushButton("Simpan")
+        btn_simpan.setFixedHeight(42)
+        btn_simpan.setCursor(Qt.PointingHandCursor)
+        btn_simpan.setStyleSheet("QPushButton{background:#1A56DB;color:white;border:none;border-radius:8px;font-weight:700;font-size:14px;}QPushButton:hover{background:#1E40AF;}")
+
+        btn_row.addWidget(btn_hapus)
+        btn_row.addStretch()
+        btn_row.addWidget(btn_simpan)
+        outer.addLayout(btn_row)
+
+        def do_save():
+            rating_text = input_rating.text().strip().replace(',', '.')
+            try:
+                rating = float(rating_text) if rating_text else 0.0
+                if rating and not (1.0 <= rating <= 5.0):
+                    QMessageBox.warning(dialog, "Rating Tidak Valid", "Rating harus antara 1.0–5.0.")
+                    return
+            except ValueError:
+                QMessageBox.warning(dialog, "Rating Tidak Valid", "Masukkan angka untuk rating.")
+                return
+            self.data_manager.update_tracker(tracker_data["id_tracker"], {
+                "status_baca"    : combo_status.currentText(),
+                "rating_personal": rating,
+                "catatan"        : input_anotasi.text().strip(),
+                "tgl_mulai"      : input_tgl_mulai.text().strip() or "-",
+                "tgl_selesai"    : input_tgl_selesai.text().strip() or "-",
+            })
+            dialog.accept()
+            self._load_collections_data()
+            self._load_overview_data()
+
+        def do_hapus():
+            k = QMessageBox.question(dialog, "Konfirmasi", "Hapus buku ini dari koleksi?",
+                                     QMessageBox.Yes | QMessageBox.No)
+            if k == QMessageBox.Yes:
+                self.data_manager.hapus_tracker(tracker_data["id_tracker"])
+                dialog.accept()
+                self._load_collections_data()
+                self._load_overview_data()
+
+        btn_simpan.clicked.connect(do_save)
+        btn_hapus.clicked.connect(do_hapus)
+        dialog.exec_()
+
     def _on_collection_selected(self):
         """Isi form CRUD saat user memilih baris di tabel Collections."""
         selected = self.table_col.selectedItems()
@@ -1253,6 +1579,7 @@ class DashboardScreen(QWidget):
         self.input_col_rating.setText(
             f"{r:g}" if r else ""
         )
+        self.star_widget.set_value(float(r))
         # Aktif/disable field rating berdasarkan status
         self._on_status_changed(self.combo_status.currentText())
         catatan = tracker_data.get("catatan", tracker_data.get("anotasi", ""))
@@ -1361,9 +1688,23 @@ class DashboardScreen(QWidget):
             self._all_books_cache = self.data_manager.get_semua_buku()
 
         QMessageBox.information(self, "Berhasil", "Koleksi berhasil diperbarui.")
+        
+        # Simpan tracker_id yang baru saja diedit
+        edited_tracker_id = self._selected_tracker.get("id_tracker")
         self._selected_tracker = None
+        
         self._load_collections_data()
         self._load_overview_data()
+        
+        # Kembalikan seleksi (garis biru) ke baris yang baru saja diedit
+        for row in range(self.table_col.rowCount()):
+            item = self.table_col.item(row, 0)
+            if item:
+                tracker_data = item.data(Qt.UserRole)
+                if tracker_data and tracker_data.get("id_tracker") == edited_tracker_id:
+                    self.table_col.selectRow(row)
+                    self._on_collection_selected()  # Paksa update state dan form
+                    break
 
     def _delete_collection_entry(self):
         """Hapus entri koleksi dari tracker.json."""
@@ -1481,6 +1822,10 @@ class DashboardScreen(QWidget):
                     cell.setTextAlignment(Qt.AlignCenter)
                 self.table_dash.setItem(row, col, cell)
 
+    def _render_all_charts(self):
+        if hasattr(self, "_pie_chart_layout"):
+            self._rebuild_analytics_charts()
+
     def _rebuild_analytics_charts(self):
         """Rebuild chart analytics dengan data nyata dari tracker user."""
         if not self.current_user or not self.data_manager:
@@ -1519,29 +1864,71 @@ class DashboardScreen(QWidget):
 
         # FIX: Hapus widget lama dan pasang yang baru dengan data nyata
         def _replace_chart(layout, placeholder_attr, new_widget):
-            ph = getattr(self, placeholder_attr, None)
-            if ph:
-                layout.removeWidget(ph)
-                ph.deleteLater()
-                setattr(self, placeholder_attr, None)
-            # Hapus widget canvas lama jika ada (index 2 setelah title+spacing)
-            while layout.count() > 2:
+            # Hapus semua item kecuali label judul (index 0)
+            while layout.count() > 1:
                 item = layout.takeAt(layout.count() - 1)
                 if item.widget():
                     item.widget().deleteLater()
-            layout.addWidget(new_widget, 1)
+                elif item.spacerItem():
+                    pass  # spacer cukup di-takeAt
+            setattr(self, placeholder_attr, None)
+            layout.addWidget(new_widget)
+            # Tinggi canvas menyesuaikan konten
+            new_widget.setMinimumHeight(int(new_widget.figure.get_figheight() * new_widget.figure.get_dpi()))
+
+        use_anim = self._user_data.get("animate_charts", True)
 
         data_status_display = status_count if any(v > 0 for v in status_count.values()) else None
-        pie_widget = visualizer.create_pie_chart_status(data_status_display)
+        pie_widget = visualizer.create_pie_chart_status(data_status_display, use_animations=use_anim)
         _replace_chart(self._pie_chart_layout, "_pie_placeholder", pie_widget)
 
         data_kat_display = kategori_count if kategori_count else None
-        bar_widget = visualizer.create_bar_chart_kategori(data_kat_display)
+        bar_widget = visualizer.create_bar_chart_kategori(data_kat_display, use_animations=use_anim)
         _replace_chart(self._bar_chart_layout, "_bar_placeholder", bar_widget)
 
         data_rating_display = rating_count if any(v > 0 for v in rating_count.values()) else None
-        hist_widget = visualizer.create_histogram_rating(data_rating_display)
+        hist_widget = visualizer.create_histogram_rating(data_rating_display, use_animations=use_anim)
         _replace_chart(self._hist_chart_layout, "_hist_placeholder", hist_widget)
+
+        # === DATA GLOBAL (semua user dari tracker.json) ===
+        all_tracker = self.data_manager._read_json(self.data_manager.path_tracker)
+
+        # Bar chart status semua user
+        status_global = {}
+        for t in all_tracker:
+            s = t.get('status_baca', 'Belum Dibaca')
+            status_global[s] = status_global.get(s, 0) + 1
+        global_widget = visualizer.create_bar_status_global(status_global or None, use_animations=use_anim)
+        _replace_chart(self._global_chart_layout, "_global_placeholder", global_widget)
+
+        # Pie chart komposisi genre dari SELURUH buku di katalog
+        kat_global = {}
+        for b in self._all_books_cache:
+            genres = b.get('genre', [])
+            if isinstance(genres, list):
+                for g in genres[:1]:  # ambil genre utama
+                    kat_global[g] = kat_global.get(g, 0) + 1
+            elif genres:
+                kat_global[str(genres)] = kat_global.get(str(genres), 0) + 1
+        pie_kat_widget = visualizer.create_pie_chart_kategori_global(kat_global or None, use_animations=use_anim)
+        _replace_chart(self._pie_kat_layout, "_pie_kat_placeholder", pie_kat_widget)
+
+        # Trend line genre per dekade dari buku.json
+        top_genres = sorted(kat_global, key=kat_global.get, reverse=True)[:5]
+        trend_data = {g: {} for g in top_genres}
+        for b in self._all_books_cache:
+            tahun = b.get('first_published', 0)
+            try: tahun = int(tahun)
+            except: continue
+            if tahun < 1950 or tahun > 2024: continue
+            dekade = (tahun // 10) * 10
+            genres = b.get('genre', [])
+            g0 = genres[0] if isinstance(genres, list) and genres else str(genres)
+            if g0 in trend_data:
+                trend_data[g0][dekade] = trend_data[g0].get(dekade, 0) + 1
+        trend_data = {g: d for g, d in trend_data.items() if d}
+        trend_widget = visualizer.create_trendline_genre_tahun(trend_data or None, use_animations=use_anim)
+        _replace_chart(self._trend_chart_layout, "_trend_placeholder", trend_widget)
 
     # Alias lama agar kompatibel dengan kode yang sudah ada
     def _refresh_analytics(self):
@@ -1635,9 +2022,16 @@ class DashboardScreen(QWidget):
         btn_help.setStyleSheet(menu_item_style)
         btn_help.setCursor(Qt.PointingHandCursor)
         btn_help.clicked.connect(lambda: (popup.accept(), HelpDialog(self).exec_()))
+        
+        btn_settings = QPushButton("  Settings")
+        btn_settings.setIcon(QIcon("assets/icons/ic_settings.svg"))
+        btn_settings.setStyleSheet(menu_item_style)
+        btn_settings.setCursor(Qt.PointingHandCursor)
+        btn_settings.clicked.connect(lambda: (popup.accept(), self._open_settings_dialog()))
 
         lay.addWidget(btn_profile)
         lay.addWidget(btn_help)
+        lay.addWidget(btn_settings)
         outer.addWidget(card)
 
         # Posisi popup di bawah btn_user
@@ -1645,6 +2039,21 @@ class DashboardScreen(QWidget):
         gp.setX(gp.x() - 280 + self.btn_user.width())
         popup.move(gp)
         popup.exec_()
+
+    def _on_settings_updated(self, updated_data):
+        self._user_data.update(updated_data)
+        self._render_all_charts()
+
+    def _open_settings_dialog(self):
+        if not self.current_user: return
+        dlg = SettingsDialog(
+            username=self.current_user,
+            user_data=self._user_data,
+            data_manager=self.data_manager,
+            parent=self
+        )
+        dlg.settings_updated.connect(self._on_settings_updated)
+        dlg.exec_()
 
     def _open_profile_dialog(self):
         """Buka dialog profil lengkap."""
@@ -1669,6 +2078,8 @@ class DashboardScreen(QWidget):
         nama = new_data.get("nama_lengkap") or self.current_user
         if hasattr(self, "lbl_welcome"):
             self.lbl_welcome.setText(f"Selamat datang kembali, {nama}! 👋")
+        if hasattr(self, "lbl_top_user_name"):
+            self.lbl_top_user_name.setText(nama)
         self._update_user_avatar()
 
     def show_book_detail(self, book_data=None):

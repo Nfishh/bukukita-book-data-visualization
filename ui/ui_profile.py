@@ -274,11 +274,7 @@ class ProfileDialog(QDialog):
         self.inp_uname.setStyleSheet(self.inp_uname.styleSheet() +
             "QLineEdit { background:#F1F5F9; color:#94A3B8; border: 1px solid #F1F5F9; }")
 
-        lbl_p,  self.inp_pass_baru  = _field("Password Baru",    "Kosongkan jika tidak ingin diubah", is_pass=True)
-        lbl_cp, self.inp_pass_conf  = _field("Konfirmasi Password", "Ulangi password baru", is_pass=True)
-
-        for w in [lbl_n, self.inp_nama, lbl_u, self.inp_uname,
-                  lbl_p, self.inp_pass_baru, lbl_cp, self.inp_pass_conf]:
+        for w in [lbl_n, self.inp_nama, lbl_u, self.inp_uname]:
             flay.addWidget(w)
 
         btn_save = QPushButton("Simpan Perubahan")
@@ -292,69 +288,10 @@ class ProfileDialog(QDialog):
         btn_save.clicked.connect(self._save_profile)
         flay.addWidget(btn_save)
 
-        # ── Riwayat Bacaan ──
-        history_card = QFrame()
-        history_card.setStyleSheet("QFrame { background:#FFFFFF; border-radius:16px; border:none; }")
-        hislay = QVBoxLayout(history_card)
-        hislay.setContentsMargins(28, 26, 28, 26)
-        hislay.setSpacing(12)
-
-        lbl_his = QLabel("Aktivitas Terbaru")
-        lbl_his.setStyleSheet("font-size:18px; font-weight:800; color:#0F172A; border:none;")
-        hislay.addWidget(lbl_his)
-        hislay.addSpacing(4)
-
-        for tracker in self.tracker_list:
-            buku   = self.buku_dict.get(tracker.get("book_id"), {})
-            judul  = buku.get("judul", tracker.get("book_id", "-"))
-            status = tracker.get("status_baca", "-")
-            rating = tracker.get("rating_personal", 0)
-
-            row = QHBoxLayout()
-            lbl_j = QLabel(judul)
-            lbl_j.setStyleSheet("font-size:15px; color:#1E293B; font-weight:600; background:transparent;")
-            lbl_j.setWordWrap(True)
-
-            status_color = {"Selesai": "#10B981", "Sedang": "#3B82F6", "Belum": "#F59E0B"}
-            clr = next((v for k, v in status_color.items() if k in status), "#94A3B8")
-            lbl_s = QLabel(status)
-            lbl_s.setFixedWidth(130)
-            lbl_s.setAlignment(Qt.AlignCenter)
-            lbl_s.setStyleSheet(f"""
-                font-size:12px; font-weight:bold; color:{clr};
-                background-color:{clr}15; border-radius:8px;
-                padding:4px 0px; border:none;
-            """)
-
-            stars = "★" * int(rating) + "☆" * (5 - int(rating)) if rating else "—"
-            lbl_r = QLabel(stars)
-            lbl_r.setStyleSheet("font-size:15px; color:#F59E0B; background:transparent;")
-            lbl_r.setFixedWidth(70)
-            lbl_r.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
-
-            row.addWidget(lbl_j, 1)
-            row.addWidget(lbl_s)
-            row.addWidget(lbl_r)
-            hislay.addLayout(row)
-
-            sep = QFrame()
-            sep.setFrameShape(QFrame.HLine)
-            sep.setStyleSheet("color: #F8FAFC;")
-            hislay.addWidget(sep)
-
-        if not self.tracker_list:
-            lbl_empty = QLabel("Rak bukumu masih kosong nih, yuk mulai eksplorasi!")
-            lbl_empty.setStyleSheet("color:#94A3B8; font-size:14px; background:transparent; font-style: italic;")
-            lbl_empty.setAlignment(Qt.AlignCenter)
-            hislay.addSpacing(10)
-            hislay.addWidget(lbl_empty)
-            hislay.addSpacing(10)
-
         # Susun semua
         root.addWidget(header)
         root.addLayout(stat_row)
         root.addWidget(form_card)
-        root.addWidget(history_card)
         root.addStretch()
 
         scroll.setWidget(content)
@@ -403,20 +340,10 @@ class ProfileDialog(QDialog):
             self._avatar._clear() 
 
     def _save_profile(self):
-        nama      = self.inp_nama.text().strip()
-        pass_baru = self.inp_pass_baru.text().strip()
-        pass_conf = self.inp_pass_conf.text().strip()
-
-        if pass_baru and pass_baru != pass_conf:
-            QMessageBox.warning(self, "Gagal", "Konfirmasi password tidak cocok.")
-            return
-
-        update = {"nama_lengkap": nama}
+        nama = self.inp_nama.text().strip()
         
+        update = {"nama_lengkap": nama}
         update["foto_profile"] = self.user_data.get("foto_profile", "")
-            
-        if pass_baru:
-            update["password"] = pass_baru
 
         self.data_manager.update_user_data(self.username, update)
         self.user_data.update(update)
@@ -484,7 +411,7 @@ class HelpDialog(QDialog):
         for num, title, desc in steps:
             card = QFrame()
             card.setStyleSheet("""
-                QFrame { background:#FFFFFF; border-radius:16px; border:1px solid #F1F5F9; }
+                QFrame { background:#FFFFFF; border-radius:16px; border:none; }
             """)
             cly = QHBoxLayout(card)
             cly.setContentsMargins(20, 20, 20, 20)
@@ -526,3 +453,133 @@ class HelpDialog(QDialog):
         root.addWidget(btn_close)
         root.addStretch()
         scroll.setWidget(content)
+
+
+# ============================================================
+# DIALOG SETTINGS
+# ============================================================
+class SettingsDialog(QDialog):
+    settings_updated = pyqtSignal(dict)
+
+    def __init__(self, username: str, user_data: dict, data_manager, parent=None):
+        super().__init__(parent)
+        self.username = username
+        self.user_data = dict(user_data)
+        self.data_manager = data_manager
+
+        self.setWindowTitle("Settings")
+        self.setFixedSize(500, 550)
+        self.setStyleSheet("background-color: #F8FAFC; font-family: 'Segoe UI', sans-serif;")
+        self._build_ui()
+
+    def _build_ui(self):
+        root = QVBoxLayout(self)
+        root.setContentsMargins(36, 36, 36, 36)
+        root.setSpacing(20)
+
+        lbl_title = QLabel("Pengaturan")
+        lbl_title.setStyleSheet("font-size:24px; font-weight:900; color:#0F172A;")
+        root.addWidget(lbl_title)
+
+        # ── Animasi Grafik ──
+        anim_card = QFrame()
+        anim_card.setStyleSheet("QFrame { background:#FFFFFF; border-radius:12px; border:none; }")
+        alay = QHBoxLayout(anim_card)
+        alay.setContentsMargins(20, 20, 20, 20)
+
+        lbl_anim = QLabel("Animasi Grafik")
+        lbl_anim.setStyleSheet("font-size:16px; font-weight:700; color:#1E293B; background:transparent;")
+        lbl_anim_desc = QLabel("Matikan untuk kinerja lebih ringan")
+        lbl_anim_desc.setStyleSheet("font-size:13px; color:#64748B; background:transparent;")
+        
+        v_anim = QVBoxLayout()
+        v_anim.addWidget(lbl_anim)
+        v_anim.addWidget(lbl_anim_desc)
+
+        from PyQt5.QtWidgets import QCheckBox
+        self.chk_anim = QCheckBox()
+        self.chk_anim.setCursor(Qt.PointingHandCursor)
+        self.chk_anim.setStyleSheet("""
+            QCheckBox::indicator { width: 44px; height: 24px; }
+        """)
+        # Jika belum ada setting animate_charts, defaultnya True
+        is_anim = self.user_data.get("animate_charts", True)
+        self.chk_anim.setChecked(is_anim)
+
+        alay.addLayout(v_anim, 1)
+        alay.addWidget(self.chk_anim)
+        root.addWidget(anim_card)
+
+        # ── Ubah Password ──
+        pass_card = QFrame()
+        pass_card.setStyleSheet("QFrame { background:#FFFFFF; border-radius:12px; border:none; }")
+        play = QVBoxLayout(pass_card)
+        play.setContentsMargins(20, 20, 20, 20)
+        play.setSpacing(12)
+
+        lbl_pass_title = QLabel("Ubah Password")
+        lbl_pass_title.setStyleSheet("font-size:16px; font-weight:700; color:#1E293B; background:transparent;")
+        play.addWidget(lbl_pass_title)
+
+        def _field(placeholder):
+            inp = QLineEdit()
+            inp.setPlaceholderText(placeholder)
+            inp.setEchoMode(QLineEdit.Password)
+            inp.setFixedHeight(40)
+            inp.setStyleSheet("""
+                QLineEdit { border: 1px solid #E2E8F0; border-radius: 8px;
+                    padding: 0 12px; font-size: 14px; color: #0F172A; background: #F8FAFC; }
+                QLineEdit:focus { border: 1.5px solid #475569; background: #FFFFFF; }
+            """)
+            return inp
+
+        self.inp_old_pass = _field("Password Lama")
+        self.inp_new_pass = _field("Password Baru")
+        self.inp_conf_pass = _field("Konfirmasi Password Baru")
+
+        play.addWidget(self.inp_old_pass)
+        play.addWidget(self.inp_new_pass)
+        play.addWidget(self.inp_conf_pass)
+        root.addWidget(pass_card)
+
+        root.addStretch()
+
+        # Tombol Simpan
+        btn_save = QPushButton("Simpan Pengaturan")
+        btn_save.setFixedHeight(48)
+        btn_save.setCursor(Qt.PointingHandCursor)
+        btn_save.setStyleSheet("""
+            QPushButton { background-color:#1A56DB; color:#FFFFFF; font-size:15px;
+                font-weight:bold; border-radius:12px; border:none; }
+            QPushButton:hover { background-color:#1E40AF; }
+        """)
+        btn_save.clicked.connect(self._save_settings)
+        root.addWidget(btn_save)
+
+    def _save_settings(self):
+        old_pass = self.inp_old_pass.text()
+        new_pass = self.inp_new_pass.text()
+        conf_pass = self.inp_conf_pass.text()
+
+        update_data = {
+            "animate_charts": self.chk_anim.isChecked()
+        }
+
+        # Validasi ganti password
+        if old_pass or new_pass or conf_pass:
+            if old_pass != self.user_data.get("password", ""):
+                QMessageBox.warning(self, "Gagal", "Password lama salah!")
+                return
+            if not new_pass:
+                QMessageBox.warning(self, "Gagal", "Password baru tidak boleh kosong.")
+                return
+            if new_pass != conf_pass:
+                QMessageBox.warning(self, "Gagal", "Konfirmasi password baru tidak cocok.")
+                return
+            update_data["password"] = new_pass
+
+        self.data_manager.update_user_data(self.username, update_data)
+        self.user_data.update(update_data)
+        self.settings_updated.emit(self.user_data)
+        QMessageBox.information(self, "Berhasil", "Pengaturan berhasil disimpan.")
+        self.accept()

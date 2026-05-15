@@ -252,7 +252,9 @@
     "first_published": "2001",
     "isbn": "9789799625700",
     "cover_url": "https://m.media-amazon.com/images/S/compressed.photo.goodreads.com/books/1249473779i/994156.jpg",
-    "local_cover_path": "assets\\covers\\GR_1572_011.jpg"
+    "local_cover_path": "assets\\covers\\GR_1572_011.jpg",
+    "rating_bukukita": 4.0,
+    "total_voter_bukukita": 1
   },
   {
     "id_buku": "GR_1572_012",
@@ -344,7 +346,9 @@
     "first_published": "1981",
     "isbn": "9789794285282",
     "cover_url": "https://m.media-amazon.com/images/S/compressed.photo.goodreads.com/books/1491741947i/1379444.jpg",
-    "local_cover_path": "assets\\covers\\GR_1572_015.jpg"
+    "local_cover_path": "assets\\covers\\GR_1572_015.jpg",
+    "rating_bukukita": 4.0,
+    "total_voter_bukukita": 1
   },
   {
     "id_buku": "GR_1572_016",
