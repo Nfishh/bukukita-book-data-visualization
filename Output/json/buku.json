@@ -277,7 +277,9 @@
     "first_published": "1983",
     "isbn": "9789793330334",
     "cover_url": "https://m.media-amazon.com/images/S/compressed.photo.goodreads.com/books/1416554142i/1488085.jpg",
-    "local_cover_path": "assets\\covers\\GR_1572_012.jpg"
+    "local_cover_path": "assets\\covers\\GR_1572_012.jpg",
+    "rating_bukukita": 2.0,
+    "total_voter_bukukita": 2
   },
   {
     "id_buku": "GR_1572_013",

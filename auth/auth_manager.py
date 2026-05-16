@@ -1,6 +1,11 @@
-# auth_manager.py
-# Developer: Muhammad Ziddan 
-# Deskripsi: Mengelola autentikasi pengguna BukuKita 
+# auth/auth_manager.py
+# Developer : Muhammad Ziddan 251524117
+# Deskripsi : Modul autentikasi pengguna BukuKita. Menangani proses login,
+#             registrasi akun baru, logout, serta validasi kekuatan
+#             password (minimal 8 karakter, mengandung huruf besar, huruf
+#             kecil, angka, dan karakter unik). Menjaga state user_aktif
+#             selama sesi berjalan. Bergantung pada DataManager untuk
+#             persistensi data user ke users.json. 
 
 class AuthManager:
     def __init__(self, data_manager):

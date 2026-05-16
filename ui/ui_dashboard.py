@@ -1,3 +1,13 @@
+# ui/ui_dashboard.py
+# Developer : Muhammad Iqbal 251524114
+# Deskripsi : Halaman utama (dashboard) BukuKita setelah user login.
+#             Menampilkan katalog buku, statistik bacaan personal
+#             (status_count untuk Belum Dibaca, Sedang Membaca, Selesai
+#             Dibaca, Drop), filter berdasarkan status, serta navigasi ke
+#             halaman detail buku dan profil user. Memuat data secara
+#             lazy/debounced untuk performa optimal pada koleksi besar.
+
+
 import os
 from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QLabel,
                              QLineEdit, QPushButton, QFrame, QTableWidget,
@@ -575,10 +585,12 @@ class DashboardScreen(QWidget):
         self.card_total    = StatCard("Total Koleksi",   "0 Buku", "#1A56DB", self.btn_menu_col.click)
         self.card_reading  = StatCard("Sedang Dibaca",   "0 Buku", "#059669", self.btn_menu_col.click)
         self.card_finished = StatCard("Selesai Dibaca",  "0 Buku", "#D97706", self.btn_menu_col.click)
+        self.card_drop     = StatCard("Drop",            "0 Buku", "#6B7280", self.btn_menu_col.click)
         
         stats_layout.addWidget(self.card_total)
         stats_layout.addWidget(self.card_reading)
         stats_layout.addWidget(self.card_finished)
+        stats_layout.addWidget(self.card_drop)
         
         table_container = QFrame()
         table_container.setStyleSheet("background-color: #FFFFFF; border-radius: 12px; border: 1px solid #E3E8EE;")
@@ -770,6 +782,7 @@ class DashboardScreen(QWidget):
             lay.setContentsMargins(0, 0, 0, 0)
             lay.setSpacing(6)
             lbl = QLabel(title)
+            lbl.setAlignment(Qt.AlignCenter)
             lbl.setStyleSheet("font-size: 13px; font-weight: bold; color: #1E293B; border: none; background: transparent;")
             lay.addWidget(lbl)
             lay.addWidget(w)
@@ -1379,7 +1392,7 @@ class DashboardScreen(QWidget):
         outer.setSpacing(16)
 
         # Judul buku
-        lbl_judul = QLabel(judul)
+        lbl_judul = QLabel(f"Judul: {judul}")
         lbl_judul.setStyleSheet("font-size: 20px; font-weight: 800; color: #1A1F36;")
         lbl_judul.setWordWrap(True)
         outer.addWidget(lbl_judul)
@@ -1501,12 +1514,12 @@ class DashboardScreen(QWidget):
         btn_hapus = QPushButton("Hapus dari Koleksi")
         btn_hapus.setFixedHeight(42)
         btn_hapus.setCursor(Qt.PointingHandCursor)
-        btn_hapus.setStyleSheet("QPushButton{background:#FEF2F2;color:#DC2626;border:1.5px solid #FECACA;border-radius:8px;font-weight:700;font-size:14px;}QPushButton:hover{background:#FEE2E2;}")
+        btn_hapus.setStyleSheet("QPushButton{background:#FEF2F2;color:#DC2626;border:1.5px solid #FECACA;border-radius:8px;font-weight:700;font-size:14px;padding: 0 20px;}QPushButton:hover{background:#FEE2E2;}")
 
         btn_simpan = QPushButton("Simpan")
         btn_simpan.setFixedHeight(42)
         btn_simpan.setCursor(Qt.PointingHandCursor)
-        btn_simpan.setStyleSheet("QPushButton{background:#1A56DB;color:white;border:none;border-radius:8px;font-weight:700;font-size:14px;}QPushButton:hover{background:#1E40AF;}")
+        btn_simpan.setStyleSheet("QPushButton{background:#1A56DB;color:white;border:none;border-radius:8px;font-weight:700;font-size:14px;padding: 0 24px;}QPushButton:hover{background:#1E40AF;}")
 
         btn_row.addWidget(btn_hapus)
         btn_row.addStretch()
@@ -1650,9 +1663,9 @@ class DashboardScreen(QWidget):
         rating_text = self.input_col_rating.text().strip().replace(',', '.')
         rating = 0.0
         if rating_text:
-            if status != "Selesai Dibaca":
+            if status not in ["Selesai Dibaca", "Drop"]:
                 QMessageBox.warning(self, "Rating Tidak Bisa Diisi",
-                    "Rating hanya bisa diberikan setelah status = Selesai Dibaca.")
+                    "Rating hanya bisa diberikan jika status Selesai Dibaca atau Drop.")
                 return
             try:
                 rating = float(rating_text)
@@ -1786,11 +1799,13 @@ class DashboardScreen(QWidget):
         total    = len(tracker_list)
         membaca  = sum(1 for t in tracker_list if t.get("status_baca") == "Sedang Membaca")
         selesai  = sum(1 for t in tracker_list if t.get("status_baca") == "Selesai Dibaca")
+        drop     = sum(1 for t in tracker_list if t.get("status_baca") == "Drop")
 
         for card, val in [
             (self.card_total,    f"{total} Buku"),
             (self.card_reading,  f"{membaca} Buku"),
             (self.card_finished, f"{selesai} Buku"),
+            (self.card_drop,     f"{drop} Buku"),
         ]:
             lbl_val = card.layout().itemAt(1).widget()
             if lbl_val:
@@ -1835,13 +1850,15 @@ class DashboardScreen(QWidget):
         buku_dict    = {b.get("id_buku"): b for b in self._all_books_cache}
 
         # Hitung status
-        status_count = {"Selesai": 0, "Sedang": 0, "Belum": 0}
+        status_count = {"Selesai": 0, "Sedang": 0, "Belum": 0, "Drop": 0}
         for t in tracker_list:
             s = t.get("status_baca", "")
             if "Selesai" in s:
                 status_count["Selesai"] += 1
             elif "Sedang" in s:
                 status_count["Sedang"] += 1
+            elif "Drop" in s:
+                status_count["Drop"] += 1
             else:
                 status_count["Belum"] += 1
 
@@ -2111,7 +2128,7 @@ class DashboardScreen(QWidget):
         # Hubungkan tombol Bookmark
         if book_data:
             dialog.btn_bookmark.clicked.connect(
-                lambda: self._add_to_collection(book_data)
+                lambda: (self._add_to_collection(book_data), dialog.accept())
             )
 
         # Tampilkan aktivitas user jika buku ada di koleksi

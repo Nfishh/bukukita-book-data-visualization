@@ -1,4 +1,12 @@
 # ui/ui_profile.py
+# Developer : Muhammad Iqbal 251524114
+# Deskripsi : Halaman profil pengguna BukuKita. Memungkinkan user
+#             memperbarui data personal (nama lengkap, foto profil),
+#             mengatur preferensi tampilan (animasi chart), dan melihat
+#             ringkasan aktivitas bacaan. Foto profil disimpan sebagai
+#             path absolut di users.json.
+
+
 import os
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QFrame, QLineEdit, QScrollArea,
@@ -451,6 +459,12 @@ class HelpDialog(QDialog):
         """)
         btn_close.clicked.connect(self.accept)
         root.addWidget(btn_close)
+        
+        # Shortcut Enter
+        from PyQt5.QtWidgets import QShortcut
+        from PyQt5.QtGui import QKeySequence
+        QShortcut(QKeySequence("Return"), self).activated.connect(self.accept)
+        QShortcut(QKeySequence("Enter"), self).activated.connect(self.accept)
         root.addStretch()
         scroll.setWidget(content)
 
@@ -544,6 +558,17 @@ class SettingsDialog(QDialog):
 
         root.addStretch()
 
+        # Tombol Hapus Akun
+        btn_del = QPushButton("Hapus Akun")
+        btn_del.setFixedHeight(48)
+        btn_del.setCursor(Qt.PointingHandCursor)
+        btn_del.setStyleSheet("""
+            QPushButton { background-color:#FEF2F2; color:#DC2626; border:1px solid #FECACA;
+                font-size:15px; font-weight:bold; border-radius:12px; }
+            QPushButton:hover { background-color:#FEE2E2; }
+        """)
+        btn_del.clicked.connect(self._delete_account)
+
         # Tombol Simpan
         btn_save = QPushButton("Simpan Pengaturan")
         btn_save.setFixedHeight(48)
@@ -554,7 +579,23 @@ class SettingsDialog(QDialog):
             QPushButton:hover { background-color:#1E40AF; }
         """)
         btn_save.clicked.connect(self._save_settings)
-        root.addWidget(btn_save)
+        
+        btn_row = QHBoxLayout()
+        btn_row.addWidget(btn_del)
+        btn_row.addWidget(btn_save)
+        root.addLayout(btn_row)
+
+    def _delete_account(self):
+        konfirmasi = QMessageBox.question(self, "Konfirmasi Hapus Akun", "Apakah anda yakin ingin menghapus akun?", QMessageBox.Yes | QMessageBox.No)
+        if konfirmasi == QMessageBox.Yes:
+            users = self.data_manager._read_json(self.data_manager.path_users)
+            if self.username in users:
+                del users[self.username]
+                self.data_manager._write_json(self.data_manager.path_users, users)
+                QMessageBox.information(self, "Sukses", "Akun berhasil dihapus. Silakan login kembali.")
+                self.accept()
+                if self.parent() and hasattr(self.parent(), "btn_logout"):
+                    self.parent().btn_logout.click()
 
     def _save_settings(self):
         old_pass = self.inp_old_pass.text()

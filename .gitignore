@@ -11,3 +11,18 @@ __pycache__/
 
 # Log
 changelog.txt
+
+*.pyo
+
+# Virtual environment (gede banget, dan setiap orang punya sendiri)
+env/
+.venv/
+
+# IDE settings (personal preference, beda tiap orang)
+.vscode/
+.idea/
+*.swp
+
+# OS files
+.DS_Store
+Thumbs.db

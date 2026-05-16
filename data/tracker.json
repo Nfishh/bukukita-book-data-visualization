@@ -194,11 +194,11 @@
     "id_tracker": "18E461E1",
     "user_id": "devNibos",
     "book_id": "GR_1572_013",
-    "status_baca": "Belum Dibaca",
-    "rating_personal": 0.0,
-    "catatan": "",
+    "status_baca": "Drop",
+    "rating_personal": 3.0,
+    "catatan": "lebay",
     "tgl_mulai": "2026-05-15",
-    "tgl_selesai": ""
+    "tgl_selesai": "2026-05-28"
   },
   {
     "id_tracker": "D44F0305",
@@ -241,19 +241,21 @@
     "id_tracker": "79A16491",
     "user_id": "devNibos",
     "book_id": "GR_1572_012",
-    "status_baca": "Belum Dibaca",
-    "rating_personal": 0,
-    "catatan": "",
-    "tgl_mulai": "-"
+    "status_baca": "Selesai Dibaca",
+    "rating_personal": 1.0,
+    "catatan": "asdfhsadlfhd fsdafl asdfhasdf asdf hasd fashdf lasdhf asdflahs dflasdfasdf",
+    "tgl_mulai": "2026-05-16",
+    "tgl_selesai": "2026-05-21"
   },
   {
     "id_tracker": "7CC788C3",
     "user_id": "devNibos",
     "book_id": "GR_1572_022",
-    "status_baca": "Belum Dibaca",
-    "rating_personal": 0,
+    "status_baca": "Drop",
+    "rating_personal": 4.0,
     "catatan": "",
-    "tgl_mulai": "-"
+    "tgl_mulai": "-",
+    "tgl_selesai": ""
   },
   {
     "id_tracker": "0DEE2B15",
@@ -268,6 +270,24 @@
     "id_tracker": "E57A93F9",
     "user_id": "devNibos",
     "book_id": "GR_1572_024",
+    "status_baca": "Belum Dibaca",
+    "rating_personal": 0,
+    "catatan": "",
+    "tgl_mulai": "-"
+  },
+  {
+    "id_tracker": "692F2B6B",
+    "user_id": "devNibos",
+    "book_id": "GR_1572_002",
+    "status_baca": "Belum Dibaca",
+    "rating_personal": 0,
+    "catatan": "",
+    "tgl_mulai": "-"
+  },
+  {
+    "id_tracker": "97BCAB46",
+    "user_id": "devNibos",
+    "book_id": "GR_1572_001",
     "status_baca": "Belum Dibaca",
     "rating_personal": 0,
     "catatan": "",

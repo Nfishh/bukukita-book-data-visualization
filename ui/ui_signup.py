@@ -1,3 +1,13 @@
+# ui/ui_signup.py
+# Developer : Muhammad Iqbal 251524114
+# Deskripsi : Halaman pendaftaran akun baru BukuKita berbasis PyQt5.
+#             Menyediakan form input nama lengkap, username, password,
+#             dan konfirmasi password, dilengkapi indikator kekuatan
+#             password real-time (5 kriteria dengan bar progress dan
+#             checklist visual) yang memandu user membuat password aman.
+#             Toggle visibility tersedia di kedua field password.
+
+
 import re
 from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QLabel,
                              QLineEdit, QPushButton, QFrame, QSpacerItem, QSizePolicy, QAction)

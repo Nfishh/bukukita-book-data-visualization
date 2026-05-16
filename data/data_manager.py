@@ -1,3 +1,15 @@
+# data/data_manager.py
+# Developer : Fidella Rafida Ariani 251524100
+# Deskripsi : Lapisan data access (data layer) BukuKita. Mengelola semua
+#             operasi baca-tulis file JSON untuk tiga entitas utama:
+#             master buku (output/json/buku.json), data pengguna
+#             (data/users.json), dan tracker bacaan personal
+#             (data/tracker.json). Menyediakan API CRUD lengkap serta
+#             penanganan error untuk file korup, kosong, atau belum ada
+#             agar aplikasi tidak crash. Inisialisasi otomatis membuat
+#             folder dan file kosong jika belum tersedia.
+
+
 import json
 import os
 

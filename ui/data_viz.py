@@ -1,3 +1,12 @@
+# ui/data_viz.py
+# Developer : Muhammad Iqbal 252524114
+# Deskripsi : Modul visualisasi data BukuKita. Menghasilkan chart dan
+#             grafik statistik bacaan user (distribusi status baca,
+#             rating rata-rata, progres membaca dari waktu ke waktu)
+#             untuk ditampilkan di dashboard. Mendukung mode animasi
+#             yang bisa diaktifkan/dimatikan per user via preferensi.
+
+
 import matplotlib
 matplotlib.use('Qt5Agg')
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas

@@ -1,3 +1,13 @@
+# main/screen_manager.py
+# Developer : Muhammad Iqbal 251524114
+# Deskripsi : Pengelola navigasi antar halaman BukuKita berbasis
+#             QStackedWidget. Menginisialisasi seluruh manager (Data,
+#             Auth, Book, Rating), menampung tiga screen utama (Login,
+#             Signup, Dashboard), menghubungkan event handler antar
+#             screen, serta menangani alur autentikasi end-to-end
+#             (login berhasil dengan remember me, register, logout).
+
+
 from PyQt5.QtWidgets import QMainWindow, QStackedWidget, QMessageBox
 
 from data.data_manager import DataManager

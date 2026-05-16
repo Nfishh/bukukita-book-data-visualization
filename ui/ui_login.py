@@ -1,3 +1,14 @@
+# ui/ui_login.py
+# Developer : Muhammad Iqbal 251524114
+# Deskripsi : Halaman login BukuKita berbasis PyQt5. Menyajikan form
+#             autentikasi dengan layout dua kolom (branding di kiri, form
+#             di kanan), input username/password dengan toggle visibility,
+#             dan fitur "Ingatkan saya" yang menyimpan kredensial secara
+#             persisten melalui QSettings agar terisi otomatis di sesi
+#             berikutnya. Terhubung ke ScreenManager untuk handle event
+#             login dan navigasi ke halaman signup.
+
+
 from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QLabel,
                              QLineEdit, QPushButton, QFrame, QCheckBox, QAction)
 from PyQt5.QtCore import Qt, QSettings
@@ -83,6 +94,7 @@ class LoginScreen(QWidget):
             QLineEdit:focus { border: 2px solid #1A56DB; }
         """
         self.input_user.setStyleSheet(input_style)
+        self.input_user.returnPressed.connect(lambda: self.btn_login.click())
 
         # --- Input Password ---
         lbl_password = QLabel("Password")
@@ -98,6 +110,7 @@ class LoginScreen(QWidget):
         self.action_eye.setIcon(QIcon("assets/icons/ic_eye_close.svg"))
         self.input_pass.addAction(self.action_eye, QLineEdit.TrailingPosition)
         self.action_eye.triggered.connect(self.toggle_password)
+        self.input_pass.returnPressed.connect(lambda: self.btn_login.click())
 
         # --- Remember Me & Forgot Password ---
         extra_layout = QHBoxLayout()

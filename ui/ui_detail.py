@@ -1,3 +1,13 @@
+# ui/ui_detail.py
+# Developer : Muhammad Iqbal 251524114
+# Deskripsi : Halaman detail buku BukuKita berbasis PyQt5. Menampilkan
+#             informasi lengkap satu buku (cover, judul, penulis,
+#             sinopsis, rating global BukuKita), form untuk mengubah
+#             status baca, input rating personal dengan SVG bintang
+#             interaktif, kolom catatan/anotasi, serta date picker
+#             custom (calendar popup) untuk tanggal mulai dan selesai.
+
+
 from PyQt5.QtWidgets import (QDialog, QVBoxLayout, QHBoxLayout, QLabel,
                              QPushButton, QFrame, QScrollArea, QWidget,
                              QGraphicsDropShadowEffect)

@@ -1,4 +1,13 @@
 # main/main.py
+# Developer : Muhammad Nafis Idris 251524115
+# Deskripsi : Entry point aplikasi BukuKita. Menginisialisasi
+#             QApplication, mengatur sys.path agar semua modul (ui, auth,
+#             book, data) dapat di-import dengan benar dari struktur
+#             folder proyek, menyesuaikan working directory ke root
+#             proyek agar path relatif assets/ dan output/ berfungsi,
+#             lalu memunculkan ScreenManager dalam mode maximized.
+
+
 import sys
 import os
 

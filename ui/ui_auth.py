@@ -1,3 +1,12 @@
+# ui/ui_auth.py
+# Developer : Muhammad Iqbal 251524114
+# Deskripsi : Komponen UI bersama untuk halaman autentikasi (login dan
+#             signup). Berisi widget dan styling yang dipakai ulang oleh
+#             ui_login.py dan ui_signup.py — seperti layout branding
+#             kiri-kanan, gaya input field, dan styling tombol primer —
+#             untuk menjaga konsistensi visual antar halaman.
+
+
 from PyQt5.QtWidgets import (QWidget, QHBoxLayout, QVBoxLayout, QLabel,
                              QLineEdit, QPushButton, QFrame, QCheckBox, QAction, QMessageBox)
 from PyQt5.QtCore import Qt, pyqtSignal, QSettings

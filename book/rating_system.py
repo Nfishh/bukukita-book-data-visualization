@@ -1,4 +1,12 @@
-# rating_system.py
+# book/rating_system.py
+# Developer : Julfi Alfikri Abdillah 251524107
+# Deskripsi : Modul sistem rating buku BukuKita. Menghitung rata-rata
+#             rating global per buku dari seluruh user (akumulasi
+#             rating_bukukita), menyimpan rating personal user dengan
+#             validasi range 1.0-5.0 dan normalisasi format desimal koma
+#             ke titik, serta menerapkan aturan bisnis bahwa hanya buku
+#             berstatus "Selesai Dibaca" yang boleh diberi rating.
+
 
 class RatingSystem:
     def __init__(self, data_manager):
@@ -77,4 +85,4 @@ class RatingSystem:
         )
         if not tracker:
             return False
-        return "Selesai" in tracker.get('status_baca', '')
+        return tracker.get('status_baca') == "Selesai Dibaca"
