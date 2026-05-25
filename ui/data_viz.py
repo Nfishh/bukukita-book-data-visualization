@@ -1,18 +1,18 @@
 # ui/data_viz.py
 # Developer : Muhammad Iqbal 252524114
-# Deskripsi : Modul visualisasi data BukuKita. Menghasilkan chart dan
+# Deskripsi : Modul visualisasi data BukuKita Menghasilkan chart dan
 #             grafik statistik bacaan user (distribusi status baca,
 #             rating rata-rata, progres membaca dari waktu ke waktu)
 #             untuk ditampilkan di dashboard. Mendukung mode animasi
 #             yang bisa diaktifkan/dimatikan per user via preferensi.
-
-
+#             (Versi Clean Empty State)
 import matplotlib
 matplotlib.use('Qt5Agg')
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
 from matplotlib.figure import Figure
 from matplotlib.animation import FuncAnimation
 import matplotlib.patches
+import math
 
 # ── Performance: matikan rcParams yang berat ──────────────────────────
 matplotlib.rcParams.update({
@@ -33,6 +33,9 @@ def _card_color(key):
         'Sedang Membaca': '#D97706', 'Sedang' : '#D97706',
         'Belum Dibaca'  : '#1A56DB', 'Belum'  : '#1A56DB',
         'Drop'          : '#94A3B8',
+        'Kosong'        : '#E5E7EB', 
+        ''              : '#E5E7EB', 
+        None            : '#E5E7EB',
     }
     return MAP.get(key, '#1A56DB')
 
@@ -73,22 +76,44 @@ class DataVisualizer:
         return FuncAnimation(fig, func, frames=frames,
                              interval=interval, repeat=False, blit=False)
 
+    def _handle_empty_state(self, ax, message="Belum ada data"):
+        """Fungsi helper untuk membersihkan axis dan menampilkan pesan kosong."""
+        ax.clear()
+        ax.get_xaxis().set_visible(False)
+        ax.get_yaxis().set_visible(False)
+        ax.spines['top'].set_visible(False)
+        ax.spines['right'].set_visible(False)
+        ax.spines['left'].set_visible(False)
+        ax.spines['bottom'].set_visible(False)
+        ax.text(0.5, 0.5, message, ha='center', va='center',
+                fontsize=11, fontweight='bold', color=self.colors['text_light'],
+                transform=ax.transAxes)
+
     # ─────────────────────────────────────────────────────────────────
     # 1. PIE CHART STATUS BACAAN — FULL (bukan donut)
     # ─────────────────────────────────────────────────────────────────
     def create_pie_chart_status(self, data_status=None, use_animations=True):
-        if not data_status:
-            data_status = {'Selesai': 1, 'Sedang': 1, 'Belum': 1}
+        # Filter jika key None atau nilai totalnya 0
+        if data_status:
+            data_status = {k: v for k, v in data_status.items() if k and v > 0}
+            
+        is_empty = not data_status
 
-        import math
+        fig = self._fig(5, 4)
+        ax  = fig.add_subplot(111)
+
+        if is_empty:
+            # Tampilkan lingkaran abu-abu polos tanpa teks persentase/legenda dummy
+            wedges, _ = ax.pie([1], labels=None, colors=['#E5E7EB'], startangle=90, radius=1.0)
+            self._handle_empty_state(ax, "Belum ada riwayat membaca")
+            # Kembalikan canvas langsung (tanpa animasi)
+            return self._canvas(fig)
+
         labels = list(data_status.keys())
         sizes  = list(data_status.values())
         warna  = [_card_color(k) for k in labels]
         total  = sum(sizes)
         FRAMES = 18
-
-        fig = self._fig(5, 4)
-        ax  = fig.add_subplot(111)
 
         wedges, _ = ax.pie(
             sizes, labels=None, colors=warna, startangle=90, radius=1.0,
@@ -157,13 +182,22 @@ class DataVisualizer:
         return canvas
 
     # ─────────────────────────────────────────────────────────────────
-    # 2. PIE CHART KATEGORI KATALOG — FULL
+    # 2. PIE CHART KATEGORI KATALOG — GLOBAL
     # ─────────────────────────────────────────────────────────────────
     def create_pie_chart_kategori_global(self, data_kategori=None, use_animations=True):
-        if not data_kategori:
-            data_kategori = {'Fiksi': 60, 'Non-Fiksi': 40}
+        if data_kategori:
+            data_kategori = {k: v for k, v in data_kategori.items() if k and v > 0}
 
-        import math
+        is_empty = not data_kategori
+
+        fig = self._fig(5, 4)
+        ax  = fig.add_subplot(111)
+
+        if is_empty:
+            ax.pie([1], labels=None, colors=['#E5E7EB'], startangle=90, radius=1.0)
+            self._handle_empty_state(ax, "Belum ada data kategori")
+            return self._canvas(fig)
+
         sorted_kat = sorted(data_kategori.items(), key=lambda x: x[1], reverse=True)
         if len(sorted_kat) > 7:
             top     = sorted_kat[:6]
@@ -177,9 +211,6 @@ class DataVisualizer:
         warna  = [_PALETTE[i % len(_PALETTE)] for i in range(len(labels))]
         total  = sum(sizes)
         FRAMES = 18
-
-        fig = self._fig(5, 4)
-        ax  = fig.add_subplot(111)
 
         wedges, _ = ax.pie(
             sizes, labels=None, colors=warna, startangle=90, radius=1.0,
@@ -252,8 +283,17 @@ class DataVisualizer:
     # 3. BAR CHART KATEGORI — HORIZONTAL, LEBAR PENUH, DINAMIS
     # ─────────────────────────────────────────────────────────────────
     def create_bar_chart_kategori(self, data_kategori=None, use_animations=True):
-        if not data_kategori:
-            data_kategori = {'Fiksi': 120, 'Non-Fiksi': 85}
+        if data_kategori:
+            data_kategori = {k: v for k, v in data_kategori.items() if k and v > 0}
+
+        is_empty = not data_kategori
+
+        fig = self._fig(w=12, h=4)
+        ax  = fig.add_subplot(111)
+
+        if is_empty:
+            self._handle_empty_state(ax, "Tidak ada data kategori koleksi")
+            return self._canvas(fig)
 
         sorted_d = sorted(data_kategori.items(), key=lambda x: x[1], reverse=True)
         kategori = [k for k, _ in sorted_d]
@@ -262,8 +302,7 @@ class DataVisualizer:
         FRAMES   = 15
 
         fig_h    = max(3.5, min(10, n * 0.52 + 1.5))
-        fig      = self._fig(w=12, h=fig_h)
-        ax       = fig.add_subplot(111)
+        fig.set_figheight(fig_h)
 
         colors_bar = [_PALETTE[i % len(_PALETTE)] for i in range(n)]
         bars       = ax.barh(kategori, [0] * n, color=colors_bar, height=0.55, left=0)
@@ -328,14 +367,20 @@ class DataVisualizer:
         return canvas
 
     # ─────────────────────────────────────────────────────────────────
-    # 4. BAR CHART STATUS SEMUA USER — HORIZONTAL, LEBAR PENUH
+    # 4. BAR CHART STATUS SEMUA USER — HORIZONTAL (GLOBAL)
     # ─────────────────────────────────────────────────────────────────
     def create_bar_status_global(self, data_status_global=None, use_animations=True):
-        if not data_status_global:
-            data_status_global = {
-                'Selesai Dibaca': 30, 'Sedang Membaca': 15,
-                'Belum Dibaca'  : 20, 'Drop': 5,
-            }
+        if data_status_global:
+            data_status_global = {k: v for k, v in data_status_global.items() if k and v > 0}
+
+        is_empty = not data_status_global
+
+        fig   = self._fig(w=12, h=4)
+        ax    = fig.add_subplot(111)
+
+        if is_empty:
+            self._handle_empty_state(ax, "Tidak ada data statistik global")
+            return self._canvas(fig)
 
         sorted_d = sorted(data_status_global.items(), key=lambda x: x[1], reverse=True)
         labels   = [k for k, _ in sorted_d]
@@ -345,8 +390,7 @@ class DataVisualizer:
         FRAMES   = 15
 
         fig_h = max(3, min(8, n * 0.7 + 1.2))
-        fig   = self._fig(w=12, h=fig_h)
-        ax    = fig.add_subplot(111)
+        fig.set_figheight(fig_h)
 
         bars    = ax.barh(labels, [0] * n, color=colors, height=0.5)
         max_val = max(values) if values else 5
@@ -377,7 +421,7 @@ class DataVisualizer:
                 w = values[i] * p
                 bar.set_width(w)
                 val_texts[i].set_x(w + max_val * 0.01)
-                val_texts[i].set_text(f"{values[i]} tracker" if p > 0.8 else '')
+                val_texts[i].set_text(f"{values[i]}" if p > 0.8 else '')
             canvas.draw_idle()
             if frame >= FRAMES:
                 if hasattr(canvas, '_anim') and canvas._anim:
@@ -413,8 +457,18 @@ class DataVisualizer:
     # 5. HISTOGRAM RATING
     # ─────────────────────────────────────────────────────────────────
     def create_histogram_rating(self, data_rating=None, use_animations=True):
-        if not data_rating:
-            data_rating = {'★ 1': 0, '★ 2': 0, '★ 3': 0, '★ 4': 0, '★ 5': 0}
+        if data_rating:
+            # Tetap valid jika setidaknya salah satu rating memiliki jumlah > 0
+            has_data = any(v > 0 for v in data_rating.values())
+        else:
+            has_data = False
+
+        fig     = self._fig(w=7, h=3.5)
+        ax      = fig.add_subplot(111)
+
+        if not has_data:
+            self._handle_empty_state(ax, "Belum ada buku yang dinilai")
+            return self._canvas(fig)
 
         bintang     = list(data_rating.keys())
         jumlah      = list(data_rating.values())
@@ -425,8 +479,6 @@ class DataVisualizer:
         colors_bar  = [star_colors[i] if i < len(star_colors)
                        else self.colors['warning'] for i in range(n)]
 
-        fig     = self._fig(w=7, h=3.5)
-        ax      = fig.add_subplot(111)
         ax.grid(axis='y', linestyle='--', alpha=0.4, color='#CBD5E1', zorder=0)
         bars    = ax.bar(bintang, [0] * n, color=colors_bar,
                          width=0.55, zorder=3, edgecolor='white', linewidth=1.5)
@@ -490,17 +542,20 @@ class DataVisualizer:
     # 6. TREND LINE GENRE PER TAHUN — LEBAR PENUH
     # ─────────────────────────────────────────────────────────────────
     def create_trendline_genre_tahun(self, data_trend=None, use_animations=True):
-        if not data_trend:
-            data_trend = {
-                'Fiksi'    : {1990: 5,  2000: 12, 2010: 25, 2020: 18},
-                'Non-Fiksi': {1990: 3,  2000: 8,  2010: 15, 2020: 22},
-            }
-
-        all_years = sorted({y for d in data_trend.values() for y in d.keys()})
-        FRAMES    = 22
+        if data_trend:
+            has_data = any(len(yd) > 0 for yd in data_trend.values())
+        else:
+            has_data = False
 
         fig = self._fig(w=12, h=4)
         ax  = fig.add_subplot(111)
+
+        if not has_data:
+            self._handle_empty_state(ax, "Belum ada tren membaca tahunan")
+            return self._canvas(fig)
+
+        all_years = sorted({y for d in data_trend.values() for y in d.keys()})
+        FRAMES    = 22
 
         line_objs = []
         for idx, (genre, yd) in enumerate(data_trend.items()):
