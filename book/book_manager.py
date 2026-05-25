@@ -1,4 +1,13 @@
-# book_manager.py
+# book/book_manager.py
+# Developer : Julfi Alfikri Abdillah 251524107
+# Deskripsi : Modul manajemen koleksi buku pengguna BukuKita. Menjembatani
+#             interaksi user dengan tracker bacaan: menampilkan katalog
+#             buku, memperbarui status baca (Belum Dibaca, Sedang Membaca,
+#             Selesai Dibaca, Drop), serta menghapus buku dari koleksi.
+#             Otomatis membuat entri tracker baru jika user belum pernah
+#             menambahkan buku tersebut sebelumnya.
+
+
 import uuid
 
 class BookManager:

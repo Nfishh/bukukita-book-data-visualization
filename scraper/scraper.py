@@ -1,3 +1,13 @@
+# scraper/scraper.py
+# Developer : Muhammad Nafis Idris 251524115
+# Deskripsi : Modul scraping data buku dari sumber eksternal untuk
+#             mengisi master katalog BukuKita (output/json/buku.json).
+#             Mengekstrak informasi buku seperti judul, penulis,
+#             sinopsis, cover, dan metadata terkait, lalu menyimpannya
+#             dalam format JSON terstruktur sesuai schema yang dipakai
+#             oleh DataManager.
+
+
 """
 scraper.py
 ==========

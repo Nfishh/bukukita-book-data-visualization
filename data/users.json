@@ -1,1 +1,61 @@
-[]
+[
+  {
+    "username": "asepganteng",
+    "password": "admin123",
+    "role": "developer"
+  },
+  {
+    "username": "d",
+    "password": "d",
+    "role": "user"
+  },
+  {
+    "username": "gharinganteng",
+    "password": "nafisasu",
+    "role": "user"
+  },
+  {
+    "username": "ipi",
+    "password": "123",
+    "role": "user"
+  },
+  {
+    "username": "aa",
+    "password": "aaa",
+    "role": "user"
+  },
+  {
+    "username": "s",
+    "password": "s",
+    "role": "user"
+  },
+  {
+    "username": "akmalganteng1234",
+    "password": "111",
+    "role": "user"
+  },
+  {
+    "username": "zidanganteng",
+    "password": "111",
+    "role": "user"
+  },
+  {
+    "username": "1",
+    "password": "1",
+    "role": "user"
+  },
+  {
+    "username": "devNibos",
+    "password": "111",
+    "role": "user",
+    "nama_lengkap": "Muhammad Iqbal",
+    "foto_profile": "C:/Users/Lenovo/Downloads/ilustrasi-vektor-tengkorak-dengan-tulang-bersilang_43623-1523.jpg",
+    "animate_charts": false
+  },
+  {
+    "username": "12",
+    "password": "11",
+    "role": "user",
+    "nama_lengkap": "sueb"
+  }
+]
