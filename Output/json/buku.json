@@ -20,7 +20,9 @@
     "first_published": "2005",
     "isbn": "9789793062792",
     "cover_url": "https://m.media-amazon.com/images/S/compressed.photo.goodreads.com/books/1489732961i/1362193.jpg",
-    "local_cover_path": "assets\\covers\\GR_1572_001.jpg"
+    "local_cover_path": "assets\\covers\\GR_1572_001.jpg",
+    "rating_bukukita": 4.17,
+    "total_voter_bukukita": 6
   },
   {
     "id_buku": "GR_1572_002",
@@ -43,7 +45,9 @@
     "first_published": "1980",
     "isbn": "9789799731234",
     "cover_url": "https://m.media-amazon.com/images/S/compressed.photo.goodreads.com/books/1565658920i/1398034.jpg",
-    "local_cover_path": "assets\\covers\\GR_1572_002.jpg"
+    "local_cover_path": "assets\\covers\\GR_1572_002.jpg",
+    "rating_bukukita": 3.0,
+    "total_voter_bukukita": 2
   },
   {
     "id_buku": "GR_1572_003",
@@ -66,7 +70,9 @@
     "first_published": "2005",
     "isbn": "9789797591519",
     "cover_url": "https://m.media-amazon.com/images/S/compressed.photo.goodreads.com/books/1472231689i/1499340.jpg",
-    "local_cover_path": "assets\\covers\\GR_1572_003.jpg"
+    "local_cover_path": "assets\\covers\\GR_1572_003.jpg",
+    "rating_bukukita": 5.0,
+    "total_voter_bukukita": 1
   },
   {
     "id_buku": "GR_1572_004",
@@ -89,7 +95,9 @@
     "first_published": "1982",
     "isbn": "9789797731939",
     "cover_url": "https://m.media-amazon.com/images/S/compressed.photo.goodreads.com/books/1464425991i/1334844.jpg",
-    "local_cover_path": "assets\\covers\\GR_1572_004.jpg"
+    "local_cover_path": "assets\\covers\\GR_1572_004.jpg",
+    "rating_bukukita": 5.0,
+    "total_voter_bukukita": 1
   },
   {
     "id_buku": "GR_1572_005",
@@ -135,7 +143,9 @@
     "first_published": "2006",
     "isbn": "9789793062921",
     "cover_url": "https://m.media-amazon.com/images/S/compressed.photo.goodreads.com/books/1489733383i/1407874.jpg",
-    "local_cover_path": "assets\\covers\\GR_1572_006.jpg"
+    "local_cover_path": "assets\\covers\\GR_1572_006.jpg",
+    "rating_bukukita": 3.5,
+    "total_voter_bukukita": 2
   },
   {
     "id_buku": "GR_1572_007",
@@ -228,8 +238,8 @@
     "isbn": "9789791227025",
     "cover_url": "https://m.media-amazon.com/images/S/compressed.photo.goodreads.com/books/1489733485i/1464757.jpg",
     "local_cover_path": "assets\\covers\\GR_1572_010.jpg",
-    "rating_bukukita": 3.93,
-    "total_voter_bukukita": 3
+    "rating_bukukita": 3.9,
+    "total_voter_bukukita": 4
   },
   {
     "id_buku": "GR_1572_011",

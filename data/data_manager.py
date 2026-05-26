@@ -10,13 +10,44 @@
 #             folder dan file kosong jika belum tersedia.
 
 
+# data/data_manager.py
+# Developer : Fidella Rafida Ariani 251524100
+# Deskripsi : Lapisan data access (data layer) BukuKita. Mengelola semua
+#             operasi baca-tulis file JSON untuk tiga entitas utama:
+#             master buku (output/json/buku.json), data pengguna
+#             (data/users.json), dan tracker bacaan personal
+#             (data/tracker.json). Menyediakan API CRUD lengkap serta
+#             penanganan error untuk file korup, kosong, atau belum ada
+#             agar aplikasi tidak crash. Inisialisasi otomatis membuat
+#             folder dan file kosong jika belum tersedia.
+#
+#             [UPDATE] Mendukung PyInstaller: buku.json (read-only) dibaca
+#             dari folder aset, sedangkan users.json & tracker.json
+#             (read-write) disimpan di folder persisten di samping .exe
+#             sehingga registrasi user & koleksi tidak hilang antar sesi.
+
+
 import json
 import os
 
 class DataManager:
     def __init__(self):
-        self.data_dir   = "data"
+        # ------------------------------------------------------------
+        # Penentuan lokasi file.
+        #
+        # WRITABLE_ROOT  : folder untuk data yang berubah (users, tracker).
+        #                  Diisi oleh main.py lewat environment variable.
+        #                  Fallback ke "." (cwd) jika dijalankan tanpa main.py
+        #                  (mis. saat unit test) -- perilaku lama tetap aman.
+        # ASSET_ROOT     : folder kerja saat ini (cwd). main.py sudah
+        #                  meng-chdir ke folder aset, jadi buku.json tetap
+        #                  bisa diakses lewat path relatif seperti semula.
+        # ------------------------------------------------------------
+        writable_root = os.environ.get("BUKUKITA_WRITABLE_ROOT", "")
+
+        self.data_dir   = os.path.join(writable_root, "data") if writable_root else "data"
         self.output_dir = os.path.join("output", "json")
+
         self.path_buku    = os.path.join(self.output_dir, "buku.json")
         self.path_users   = os.path.join(self.data_dir, "users.json")
         self.path_tracker = os.path.join(self.data_dir, "tracker.json")
@@ -40,6 +71,10 @@ class DataManager:
 
     def _write_json(self, path, data):
         try:
+            # Pastikan folder tujuan ada sebelum menulis
+            folder = os.path.dirname(path)
+            if folder and not os.path.exists(folder):
+                os.makedirs(folder)
             with open(path, 'w', encoding='utf-8') as f:
                 json.dump(data, f, indent=2, ensure_ascii=False)
             return True
