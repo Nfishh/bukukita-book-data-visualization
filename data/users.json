@@ -57,5 +57,25 @@
     "password": "11",
     "role": "user",
     "nama_lengkap": "sueb"
+  },
+  {
+    "username": "dimasdidi",
+    "password": "qwertyui",
+    "role": "user",
+    "nama_lengkap": "d",
+    "foto_profile": "C:/Users/Lenovo/Downloads/ilustrasi-vektor-tengkorak-dengan-tulang-bersilang_43623-1523.jpg",
+    "animate_charts": false
+  },
+  {
+    "username": "testuser01",
+    "password": "Test123!",
+    "role": "user",
+    "nama_lengkap": ""
+  },
+  {
+    "username": "assa",
+    "password": "as123#@V",
+    "role": "user",
+    "nama_lengkap": "ss"
   }
 ]
