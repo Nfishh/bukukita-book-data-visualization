@@ -8,5 +8,25 @@
     "catatan": "As",
     "tgl_mulai": "2026-05-03",
     "tgl_selesai": "2026-05-20"
+  },
+  {
+    "id_tracker": "B6C026AF",
+    "user_id": "assa",
+    "book_id": "GR_1572_001",
+    "status_baca": "Selesai Dibaca",
+    "rating_personal": 5.0,
+    "catatan": "wqeqe",
+    "tgl_mulai": "2026-06-01",
+    "tgl_selesai": "2026-06-04"
+  },
+  {
+    "id_tracker": "CAC98424",
+    "user_id": "12",
+    "book_id": "GR_1572_001",
+    "status_baca": "Selesai Dibaca",
+    "rating_personal": 4.0,
+    "catatan": "214",
+    "tgl_mulai": "2026-06-02",
+    "tgl_selesai": "2026-06-04"
   }
 ]

@@ -650,7 +650,21 @@ class DashboardScreen(QWidget):
         )
         
         self.combo_filter_lib = QComboBox()
-        self.combo_filter_lib.addItems(["Semua Kategori", "Fiksi", "Non-Fiksi", "Romance", "Mystery", "Science Fiction", "Fantasy", "Biography", "History"])
+        # Dropdown sinkron dengan 9 kategori final dari spreadsheet klasifikasi.
+        # Urutan mengikuti definisi kategori baku. Filter pakai exact match
+        # via self._kategori_final(buku), bukan substring terhadap genre mentah.
+        self.combo_filter_lib.addItems([
+            "Semua Kategori",
+            "Indonesian Literature",
+            "Literature",
+            "Non Fiction",
+            "Fiction",
+            "History",
+            "Comedy",
+            "Islamic",
+            "Biography",
+            "Science Edition",
+        ])
         self.combo_filter_lib.setFixedHeight(50)
         self.combo_filter_lib.setFixedWidth(220)
         self.combo_filter_lib.setStyleSheet("""
@@ -1270,17 +1284,79 @@ class DashboardScreen(QWidget):
         if row < len(visible_books):
             self.show_book_detail(visible_books[row])
 
+    # ---------------------------------------------------------------
+    # KATEGORISASI FINAL (sinkron dengan Klasifikasi_Buku_500.xlsx)
+    # ---------------------------------------------------------------
+    # Aturan prioritas (top wins) — satu buku → satu kategori final.
+    # Pedoman lengkap ada di sheet "Pedoman Pelabelan" pada spreadsheet.
+    _BIO_TAGS     = frozenset({'Biography', 'Autobiography', 'Memoir', 'Biography Memoir'})
+    _ISLAMIC_TAGS = frozenset({'Islam', 'Islamic Fiction', 'Islamic Studies', 'Muslimah'})
+    _HISTORY_TAGS = frozenset({'History', 'History and Politics'})
+    _SCIENCE_TAGS = frozenset({'Science', 'Medicine', 'Anthropology', 'Linguistics',
+                               'Social Science', 'Cultural Studies', 'Cultural Criticism',
+                               'Psychology'})
+    _LITERARY_TAGS = frozenset({'Literature', 'Classics', 'Poetry', 'Literary Fiction',
+                                'Literary Criticism', 'Dutch Literature', 'Malay Literature'})
+    _NONFIC_TAGS  = frozenset({'Nonfiction', 'Self Help', 'Business', 'Politics', 'Philosophy',
+                               'Economics', 'Education', 'Travel', 'Travelogue', 'Essays',
+                               'Journalism', 'Reference', 'How To', 'Parenting', 'Health',
+                               'Entrepreneurship', 'Finance', 'Art', 'Photography', 'Writing',
+                               'Language', 'Spirituality', 'Religion', 'Mental Health',
+                               'Christian', 'Feminism', 'Gender', 'Environment', 'Family',
+                               'Marriage', 'Inspirational', 'Dictionaries', 'Cultural',
+                               'Community Development', 'Agrarian Studies', 'Rural Studies',
+                               'Abuse', 'True Story'})
+    _COMEDY_LIT_BLOCKERS = frozenset({'Literature', 'Literary Fiction', 'Classics'})
+
+    def _kategori_final(self, buku) -> str:
+        """Tentukan satu kategori final untuk satu buku berdasarkan aturan
+        prioritas yang sama persis dengan spreadsheet klasifikasi.
+        Return salah satu dari 9 string kategori."""
+        genres = buku.get("genre", buku.get("kategori", []))
+        if not isinstance(genres, list):
+            genres = [genres] if genres else []
+        g = set(genres)
+
+        # Rule 1: Biography
+        if g & self._BIO_TAGS:
+            return 'Biography'
+        # Rule 2: Islamic
+        if g & self._ISLAMIC_TAGS:
+            return 'Islamic'
+        # Rule 3: History (sejarah nyata, BUKAN Historical Fiction)
+        if g & self._HISTORY_TAGS:
+            return 'History'
+        # Rule 4: Comedy — Comedy tag, atau Humor tanpa tag literer
+        if 'Comedy' in g:
+            return 'Comedy'
+        if 'Humor' in g and not (g & self._COMEDY_LIT_BLOCKERS):
+            return 'Comedy'
+        # Rule 5: Science Edition
+        if g & self._SCIENCE_TAGS:
+            return 'Science Edition'
+        # Rule 6: Indonesian Literature
+        if 'Indonesian Literature' in g:
+            return 'Indonesian Literature'
+        # Rule 7: Literature (non-Indonesia)
+        if g & self._LITERARY_TAGS:
+            return 'Literature'
+        # Rule 8: Non Fiction
+        if g & self._NONFIC_TAGS:
+            return 'Non Fiction'
+        # Rule 9: Fiction (default)
+        return 'Fiction'
+
     def _get_current_page_books(self):
         """Return list buku yang sedang ditampilkan di halaman saat ini."""
         keyword  = self.search_bar_lib.text().strip().lower()
         kategori = self.combo_filter_lib.currentText()
         filtered = []
         for buku in self._all_books_cache:
-            judul     = str(buku.get("judul", "")).lower()
-            penulis   = str(buku.get("penulis", "")).lower()
-            genres    = buku.get("genre", buku.get("kategori", []))
-            genre_str = ", ".join(genres).lower() if isinstance(genres, list) else str(genres).lower()
-            if ((not keyword) or keyword in judul or keyword in penulis) and                (kategori == "Semua Kategori" or kategori.lower() in genre_str):
+            judul   = str(buku.get("judul", "")).lower()
+            penulis = str(buku.get("penulis", "")).lower()
+            cocok_keyword  = (not keyword) or (keyword in judul) or (keyword in penulis)
+            cocok_kategori = (kategori == "Semua Kategori") or (self._kategori_final(buku) == kategori)
+            if cocok_keyword and cocok_kategori:
                 filtered.append(buku)
         page_size = getattr(self, 'items_per_page', 20)
         cur_page  = getattr(self, 'current_page', 1)
@@ -1293,7 +1369,9 @@ class DashboardScreen(QWidget):
         self._do_filter_library()
 
     def _do_filter_library(self):
-        """Filter tabel Library — dipanggil setelah debounce 300ms."""
+        """Filter tabel Library — dipanggil setelah debounce 300ms.
+        Filter kategori pakai exact match terhadap kategori final
+        (lihat self._kategori_final), bukan substring genre mentah."""
         keyword  = self.search_bar_lib.text().strip().lower()
         kategori = self.combo_filter_lib.currentText()
 
@@ -1301,11 +1379,9 @@ class DashboardScreen(QWidget):
         for buku in self._all_books_cache:
             judul   = str(buku.get("judul", "")).lower()
             penulis = str(buku.get("penulis", "")).lower()
-            genres  = buku.get("genre", buku.get("kategori", []))
-            genre_str = ", ".join(genres).lower() if isinstance(genres, list) else str(genres).lower()
 
             cocok_keyword  = (not keyword) or (keyword in judul) or (keyword in penulis)
-            cocok_kategori = (kategori == "Semua Kategori") or (kategori.lower() in genre_str)
+            cocok_kategori = (kategori == "Semua Kategori") or (self._kategori_final(buku) == kategori)
 
             if cocok_keyword and cocok_kategori:
                 filtered.append(buku)
@@ -1460,10 +1536,12 @@ class DashboardScreen(QWidget):
         if tgl_mulai and tgl_mulai != "-": input_tgl_mulai.setText(tgl_mulai)
         input_tgl_mulai.setStyleSheet(field_style)
 
-        btn_cal_mulai = QPushButton("📅")
+        btn_cal_mulai = QPushButton()
+        btn_cal_mulai.setIcon(QIcon("assets/icons/ic_calendar.svg"))
+        btn_cal_mulai.setIconSize(QSize(22, 22))
         btn_cal_mulai.setFixedSize(34, 34)
         btn_cal_mulai.setCursor(Qt.PointingHandCursor)
-        btn_cal_mulai.setStyleSheet("QPushButton{background:transparent;border:none;font-size:16px;border-radius:6px;}QPushButton:hover{background:#EFF6FF;}")
+        btn_cal_mulai.setStyleSheet("QPushButton{background:transparent;border:none;border-radius:6px;}QPushButton:hover{background:#EFF6FF;}")
 
         tgl_mulai_row = QHBoxLayout()
         lbl_tm = QLabel("Tgl Mulai")
@@ -1482,7 +1560,9 @@ class DashboardScreen(QWidget):
         if tgl_selesai and tgl_selesai != "-": input_tgl_selesai.setText(tgl_selesai)
         input_tgl_selesai.setStyleSheet(field_style)
 
-        btn_cal_selesai = QPushButton("📅")
+        btn_cal_selesai = QPushButton()
+        btn_cal_selesai.setIcon(QIcon("assets/icons/ic_calendar.svg"))
+        btn_cal_selesai.setIconSize(QSize(22, 22))
         btn_cal_selesai.setFixedSize(34, 34)
         btn_cal_selesai.setCursor(Qt.PointingHandCursor)
         btn_cal_selesai.setStyleSheet(btn_cal_mulai.styleSheet())
@@ -1496,12 +1576,32 @@ class DashboardScreen(QWidget):
         tgl_selesai_row.addWidget(btn_cal_selesai)
         outer.addLayout(tgl_selesai_row)
 
-        # Sambungkan tombol kalender popup
+        # Helper untuk men-disable/enable field rating & tanggal selesai sesuai status
+        def update_dialog_fields_state(status):
+            is_selesai = (status == "Selesai Dibaca")
+            is_drop    = (status == "Drop")
+
+            input_rating.setEnabled(is_selesai or is_drop)
+            if is_selesai or is_drop:
+                input_rating.setPlaceholderText("1.0 – 5.0")
+            else:
+                input_rating.clear()
+                input_rating.setPlaceholderText("Selesaikan buku dulu")
+
+            input_tgl_selesai.setEnabled(is_selesai or is_drop)
+            btn_cal_selesai.setEnabled(is_selesai or is_drop)
+            if not (is_selesai or is_drop):
+                input_tgl_selesai.clear()
+
+        # Hubungkan signal status changed dan panggil inisialisasi awal
+        combo_status.currentTextChanged.connect(update_dialog_fields_state)
+        update_dialog_fields_state(cur_status)
+
+        # Sambungkan tombol kalender popup (parent=self untuk menghindari freeze/crash)
         def open_cal(field, btn):
-            from screen_manager import ScreenManager  # hindari circular
             cur = QDate.fromString(field.text(), "yyyy-MM-dd")
             if not cur.isValid(): cur = QDate.currentDate()
-            result = ModernCalendarPopup.get_date(cur, btn, dialog)
+            result = ModernCalendarPopup.get_date(cur, btn, self)
             if result: field.setText(result.toString("yyyy-MM-dd"))
 
         btn_cal_mulai.clicked.connect(lambda: open_cal(input_tgl_mulai, btn_cal_mulai))
@@ -1527,34 +1627,83 @@ class DashboardScreen(QWidget):
         outer.addLayout(btn_row)
 
         def do_save():
+            status = combo_status.currentText()
             rating_text = input_rating.text().strip().replace(',', '.')
-            try:
-                rating = float(rating_text) if rating_text else 0.0
-                if rating and not (1.0 <= rating <= 5.0):
+            
+            rating = 0.0
+            if rating_text:
+                if status not in ["Selesai Dibaca", "Drop"]:
+                    QMessageBox.warning(dialog, "Rating Tidak Bisa Diisi",
+                        "Rating hanya bisa diberikan jika status Selesai Dibaca atau Drop.")
+                    return
+                try:
+                    rating = float(rating_text)
+                except ValueError:
+                    QMessageBox.warning(dialog, "Rating Tidak Valid", "Masukkan angka untuk rating.")
+                    return
+                if not (1.0 <= rating <= 5.0):
                     QMessageBox.warning(dialog, "Rating Tidak Valid", "Rating harus antara 1.0–5.0.")
                     return
-            except ValueError:
-                QMessageBox.warning(dialog, "Rating Tidak Valid", "Masukkan angka untuk rating.")
-                return
+                rating = round(rating, 2)
+
             self.data_manager.update_tracker(tracker_data["id_tracker"], {
-                "status_baca"    : combo_status.currentText(),
+                "status_baca"    : status,
                 "rating_personal": rating,
                 "catatan"        : input_anotasi.text().strip(),
                 "tgl_mulai"      : input_tgl_mulai.text().strip() or "-",
                 "tgl_selesai"    : input_tgl_selesai.text().strip() or "-",
             })
+
+            # Update rating global di buku.json & refresh cache
+            if self.rating_system:
+                book_id = tracker_data.get("book_id", "")
+                avg, total = self.rating_system.hitung_rating_global(book_id)
+                self.data_manager.update_rating_bukukita(book_id, avg, total)
+                self._all_books_cache = self.data_manager.get_semua_buku()
+
             dialog.accept()
             self._load_collections_data()
             self._load_overview_data()
+
+            # Kembalikan seleksi (garis biru) ke baris yang baru saja diedit & sinkronkan sidebar CRUD
+            edited_tracker_id = tracker_data.get("id_tracker")
+            self._selected_tracker = None
+            for r in range(self.table_col.rowCount()):
+                item = self.table_col.item(r, 0)
+                if item:
+                    td = item.data(Qt.UserRole)
+                    if td and td.get("id_tracker") == edited_tracker_id:
+                        self.table_col.selectRow(r)
+                        self._on_collection_selected()  # Sinkronkan ke form sidebar
+                        break
 
         def do_hapus():
             k = QMessageBox.question(dialog, "Konfirmasi", "Hapus buku ini dari koleksi?",
                                      QMessageBox.Yes | QMessageBox.No)
             if k == QMessageBox.Yes:
                 self.data_manager.hapus_tracker(tracker_data["id_tracker"])
+
+                # Update rating global di buku.json setelah hapus & refresh cache
+                if self.rating_system:
+                    book_id = tracker_data.get("book_id", "")
+                    avg, total = self.rating_system.hitung_rating_global(book_id)
+                    self.data_manager.update_rating_bukukita(book_id, avg, total)
+                    self._all_books_cache = self.data_manager.get_semua_buku()
+
                 dialog.accept()
                 self._load_collections_data()
                 self._load_overview_data()
+
+                # Kosongkan form CRUD sidebar karena data sudah dihapus
+                self._selected_tracker = None
+                self.input_col_title.clear()
+                self.combo_status.setCurrentIndex(2)  # Default "Belum Dibaca"
+                self.input_col_date.clear()
+                if hasattr(self, "input_col_date_end"):
+                    self.input_col_date_end.clear()
+                self.input_col_rating.clear()
+                self.star_widget.set_value(0.0)
+                self.input_col_notes.clear()
 
         btn_simpan.clicked.connect(do_save)
         btn_hapus.clicked.connect(do_hapus)

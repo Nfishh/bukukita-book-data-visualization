@@ -70,11 +70,11 @@ def main():
     print()
 
     if fails == 0 and errors == 0:
-        print("  STATUS: ✅ SEMUA TEST LULUS")
+        print("  STATUS: [OK] SEMUA TEST LULUS")
         print("=" * 70)
         sys.exit(0)
     else:
-        print("  STATUS: ❌ ADA TEST YANG GAGAL")
+        print("  STATUS: [FAIL] ADA TEST YANG GAGAL")
         print("  → Cek log di atas untuk detail bug yang di-flag.")
         print("=" * 70)
         sys.exit(1)

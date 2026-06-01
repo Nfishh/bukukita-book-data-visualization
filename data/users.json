@@ -71,5 +71,11 @@
     "password": "Test123!",
     "role": "user",
     "nama_lengkap": ""
+  },
+  {
+    "username": "assa",
+    "password": "as123#@V",
+    "role": "user",
+    "nama_lengkap": "ss"
   }
 ]
